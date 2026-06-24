@@ -1,0 +1,39 @@
+/**
+ * @copyright Chungbuk National University, Autonomous Vehicle Laboratory, 2026. All rights reserved.
+ *            Subject to limited distribution and restricted disclosure only.
+ *
+ * @file      style.css
+ * @brief     IONIQ5 web cluster styles (full-screen canvas)
+ *
+ * @date      2026-06-24 created by Junhyeok Seo (jun2342@chungbuk.ac.kr)
+ */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  width: 100%;
+  height: 100%;
+  background: #000;
+  overflow: hidden;
+  font-family: "Segoe UI", "Noto Sans KR", system-ui, sans-serif;
+}
+
+#cluster {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+}
+
+#status {
+  position: fixed;
+  left: 12px;
+  bottom: 10px;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  padding: 3px 9px;
+  border-radius: 10px;
+  color: #cfd3da;
+  background: rgba(255, 255, 255, 0.06);
+  transition: opacity 0.4s;
+}
+#status.online { color: #8de08d; opacity: 0; }
+#status.offline { color: #e0a36b; opacity: 1; }

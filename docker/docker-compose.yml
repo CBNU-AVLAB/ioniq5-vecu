@@ -1,0 +1,30 @@
+# @copyright Chungbuk National University, Autonomous Vehicle Laboratory, 2026. All rights reserved.
+#            Subject to limited distribution and restricted disclosure only.
+#
+# @file      docker-compose.yml
+# @brief     vECU container service (host vcan0 + network_mode host)
+#
+# @date      2026-06-24 created by Junhyeok Seo (jun2342@chungbuk.ac.kr)
+#
+# Prerequisite: bring up the virtual CAN on the host first.
+#     ./scripts/setup_vcan.sh
+# Then:
+#     docker compose -f docker/docker-compose.yml up --build
+#
+# The cluster/keyboard run host-native (outside the container):
+#     python console/cluster.py          # http://127.0.0.1:8088
+#     python console/input.py            # arrow keys steer + Up/Down accel/brake
+
+name: ioniq5-vecu
+
+services:
+  vecu:
+    build:
+      context: ..                        # project root (ioniq5-vecu/)
+      dockerfile: docker/Dockerfile.vecu
+    image: ioniq5-vecu
+    container_name: ioniq5-vecu
+    # Share vcan0 (network namespace) and 127.0.0.1 UDP (manual input) with the host.
+    network_mode: host
+    # vcan0 is brought up by the host beforehand, so no extra privileges (NET_ADMIN) needed.
+    restart: unless-stopped

@@ -1,0 +1,4 @@
+# IONIQ5 vECU runtime/build dependencies
+python-can>=4.0      # SocketCAN (vcan0) send/receive
+cantools>=39         # dbc encode/decode (single source of truth)
+openpyxl>=3.1        # parse spec/*.xlsx (tools/xlsx_to_dbc.py, generates dbc at build time)

@@ -1,0 +1,103 @@
+VERSION ""
+
+
+NS_ : 
+	NS_DESC_
+	CM_
+	BA_DEF_
+	BA_
+	VAL_
+	CAT_DEF_
+	CAT_
+	FILTER
+	BA_DEF_DEF_
+	EV_DATA_
+	ENVVAR_DATA_
+	SGTYPE_
+	SGTYPE_VAL_
+	BA_DEF_SGTYPE_
+	BA_SGTYPE_
+	SIG_TYPE_REF_
+	VAL_TABLE_
+	SIG_GROUP_
+	SIG_VALTYPE_
+	SIGTYPE_VALTYPE_
+	BO_TX_BU_
+	BA_DEF_REL_
+	BA_REL_
+	BA_DEF_DEF_REL_
+	BU_SG_REL_
+	BU_EV_REL_
+	BU_BO_REL_
+	SG_MUL_VAL_
+
+BS_:
+
+BU_: ADE_A ADCU
+
+
+BO_ 785 ADE_A_311: 8 ADCU
+ SG_ APS2_OVR_VOLTAGE_VALUE : 48|16@1+ (7.629e-05,0.0) [0|0] "V" Vector__XXX
+ SG_ APS1_OVR_VOLTAGE_VALUE : 32|16@1+ (7.629e-05,0.0) [0|0] "V" Vector__XXX
+ SG_ APS_OVR_PERCENT_VALUE : 16|16@1+ (0.00152588,0.0) [0|0] "%" Vector__XXX
+ SG_ OVR__PERCENT : 2|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ OVR_VOLTAGE : 1|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ CAL_EN : 0|1@1+ (1,0) [0|0] "" Vector__XXX
+
+BO_ 789 ADE_A_315: 8 ADE_A
+ SG_ APS2_OUT_VOLTAGE : 48|16@1+ (7.629e-05,0.0) [0|0] "V" Vector__XXX
+ SG_ APS1_OUT_VOLTAGE : 32|16@1+ (7.629e-05,0.0) [0|0] "V" Vector__XXX
+ SG_ APS2_IN_VOLTAGE : 16|16@1+ (7.629e-05,0.0) [0|0] "V" Vector__XXX
+ SG_ APS1_IN_VOLTAGE : 0|16@1+ (7.629e-05,0.0) [0|0] "V" Vector__XXX
+
+BO_ 788 ADE_A_314: 8 ADE_A
+ SG_ APS_OUT_PERCENT : 48|16@1+ (0.00152588,0.0) [0|0] "%" Vector__XXX
+ SG_ APS_IN_PERCENT : 32|16@1+ (0.00152588,0.0) [0|0] "%" Vector__XXX
+ SG_ BRK_OVR_flag : 28|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ APS_OVR_flag : 24|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ BRK_S : 0|16@1+ (0.00152588,0.0) [0|0] "%" Vector__XXX
+
+
+
+
+CM_ SG_ 785 APS2_OVR_VOLTAGE_VALUE "APS2 voltage value for 'OVR_VOLTAGE' mode";
+CM_ SG_ 785 APS1_OVR_VOLTAGE_VALUE "APS1 voltage value for 'OVR_VOLTAGE' mode";
+CM_ SG_ 785 APS_OVR_PERCENT_VALUE "percent value for 'OVR_PERCENT' mode";
+CM_ SG_ 785 OVR__PERCENT "0: manual driving / 1: AD driving with APS percent command";
+CM_ SG_ 785 OVR_VOLTAGE "0: manual driving / 1: AD driving with APS voltage command";
+CM_ SG_ 785 CAL_EN "0 : normal mode / 1 : APS min-max calibration mode";
+CM_ SG_ 789 APS2_OUT_VOLTAGE "APS2 output voltage";
+CM_ SG_ 789 APS1_OUT_VOLTAGE "APS1 output voltage";
+CM_ SG_ 789 APS2_IN_VOLTAGE "APS2 input voltage";
+CM_ SG_ 789 APS1_IN_VOLTAGE "APS1 input voltage";
+CM_ SG_ 788 APS_OUT_PERCENT "% value for APS output";
+CM_ SG_ 788 APS_IN_PERCENT "% value for APS input";
+CM_ SG_ 788 BRK_OVR_flag "0: driver control not detected / 1: driver control detected";
+CM_ SG_ 788 APS_OVR_flag "0: driver control not detected / 1: driver control detected";
+CM_ SG_ 788 BRK_S "brake pedal sensor value";
+BA_DEF_ BO_  "GenMsgCycleTime" INT 0 65535;
+BA_DEF_ SG_  "GenSigStartValue" FLOAT 0 100000000000;
+BA_DEF_DEF_  "GenMsgCycleTime" 0;
+BA_DEF_DEF_  "GenSigStartValue" 0.0;
+BA_ "GenMsgCycleTime" BO_ 785 10;
+BA_ "GenSigStartValue" SG_ 785 APS2_OVR_VOLTAGE_VALUE 0;
+BA_ "GenSigStartValue" SG_ 785 APS1_OVR_VOLTAGE_VALUE 0;
+BA_ "GenSigStartValue" SG_ 785 APS_OVR_PERCENT_VALUE 0;
+BA_ "GenSigStartValue" SG_ 785 OVR__PERCENT 0;
+BA_ "GenSigStartValue" SG_ 785 OVR_VOLTAGE 0;
+BA_ "GenSigStartValue" SG_ 785 CAL_EN 0;
+BA_ "GenMsgCycleTime" BO_ 789 10;
+BA_ "GenSigStartValue" SG_ 789 APS2_OUT_VOLTAGE 0;
+BA_ "GenSigStartValue" SG_ 789 APS1_OUT_VOLTAGE 0;
+BA_ "GenSigStartValue" SG_ 789 APS2_IN_VOLTAGE 0;
+BA_ "GenSigStartValue" SG_ 789 APS1_IN_VOLTAGE 0;
+BA_ "GenMsgCycleTime" BO_ 788 10;
+BA_ "GenSigStartValue" SG_ 788 APS_OUT_PERCENT 0;
+BA_ "GenSigStartValue" SG_ 788 APS_IN_PERCENT 0;
+BA_ "GenSigStartValue" SG_ 788 BRK_OVR_flag 0;
+BA_ "GenSigStartValue" SG_ 788 APS_OVR_flag 0;
+BA_ "GenSigStartValue" SG_ 788 BRK_S 0;
+
+
+
+

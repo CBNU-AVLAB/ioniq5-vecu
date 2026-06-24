@@ -1,0 +1,193 @@
+VERSION ""
+
+
+NS_ : 
+	NS_DESC_
+	CM_
+	BA_DEF_
+	BA_
+	VAL_
+	CAT_DEF_
+	CAT_
+	FILTER
+	BA_DEF_DEF_
+	EV_DATA_
+	ENVVAR_DATA_
+	SGTYPE_
+	SGTYPE_VAL_
+	BA_DEF_SGTYPE_
+	BA_SGTYPE_
+	SIG_TYPE_REF_
+	VAL_TABLE_
+	SIG_GROUP_
+	SIG_VALTYPE_
+	SIGTYPE_VALTYPE_
+	BO_TX_BU_
+	BA_DEF_REL_
+	BA_REL_
+	BA_DEF_DEF_REL_
+	BU_SG_REL_
+	BU_EV_REL_
+	BU_BO_REL_
+	SG_MUL_VAL_
+
+BS_:
+
+BU_: ADA_S ADCU
+
+
+BO_ 256 ADA_S_100: 3 ADCU
+ SG_ TLA : 16|8@1+ (0.39215686274509803,0.0) [0|0] "%" Vector__XXX
+ SG_ DO2 : 10|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ DO1 : 9|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ LOP : 8|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ LSN : 7|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ LSP : 6|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ EMG : 5|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ CR : 4|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ RES : 3|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ TL : 2|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ PC : 1|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ SON : 0|1@1+ (1,0) [0|0] "" Vector__XXX
+
+BO_ 257 ADA_S_101: 4 ADCU
+ SG_ target_pos : 0|32@1- (0.016666666666666666,0.0) [0|0] "deg" Vector__XXX
+
+BO_ 258 ADA_S_102: 4 ADCU
+ SG_ pulse : 0|32@1- (1,0) [0|0] "" Vector__XXX
+
+BO_ 259 ADA_S_103: 7 ADCU
+ SG_ pos_lim_flag : 48|8@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ return_pulse_per_10ms : 32|16@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ return_flag : 24|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ reset : 16|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ encoder_update : 8|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ diag_enable : 0|1@1+ (1,0) [0|0] "" Vector__XXX
+
+BO_ 260 ADA_S_104: 8 ADA_S
+ SG_ servo_abs_pos : 32|32@1- (0.016666666666666666,0.0) [0|0] "deg" Vector__XXX
+ SG_ encoder_pos : 0|32@1- (0.016666666666666666,0.0) [0|0] "deg" Vector__XXX
+
+BO_ 261 ADA_S_105: 3 ADA_S
+ SG_ RD : 20|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ ALM : 19|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ TLC : 18|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ ZSP : 17|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ INP : 16|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ DO2 : 10|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ DO1 : 9|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ LOP : 8|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ LSN : 7|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ LSP : 6|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ EMG : 5|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ CR : 4|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ RES : 3|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ TL : 2|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ PC : 1|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ SON : 0|1@1+ (1,0) [0|0] "" Vector__XXX
+
+BO_ 262 ADA_S_106: 8 ADA_S
+ SG_ fsm_state_id : 48|8@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ loop_count : 40|8@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ res422_recv_timeout : 32|8@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ rs422_recv_count : 24|8@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ can_error_count : 16|8@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ rs422_error_count : 8|8@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ rs422_error_state : 0|8@1+ (1,0) [0|0] "" Vector__XXX
+
+BO_ 263 ADA_S_107: 8 ADA_S
+ SG_ last_backward_pulse : 32|32@1- (1,0) [0|0] "" Vector__XXX
+ SG_ last_forward_pulse : 0|32@1- (1,0) [0|0] "" Vector__XXX
+
+BO_ 264 ADA_S_108: 8 ADA_S
+ SG_ encoder_offset : 0|32@1- (1,0) [0|0] "" Vector__XXX
+
+BO_ 265 ADA_S_109: 8 ADA_S
+ SG_ limit_max : 32|32@1- (1,0) [0|0] "" Vector__XXX
+ SG_ limit_min : 0|32@1- (1,0) [0|0] "" Vector__XXX
+
+
+
+
+CM_ SG_ 256 TLA "motor torque limit";
+CM_ SG_ 256 DO2 "reserved";
+CM_ SG_ 256 DO1 "reserved";
+CM_ SG_ 256 LOP "reserved";
+CM_ SG_ 256 LSN "reserved";
+CM_ SG_ 256 LSP "reserved";
+CM_ SG_ 256 EMG "reserved";
+CM_ SG_ 256 CR "absolute position clear command";
+CM_ SG_ 256 RES "driver reset command";
+CM_ SG_ 256 TL "reserved";
+CM_ SG_ 256 PC "reserved";
+CM_ SG_ 256 SON "actuator enable command(0: free wheeling, 1: angle control)";
+CM_ SG_ 257 target_pos "steering angle command";
+CM_ SG_ 258 pulse "reserved";
+CM_ SG_ 259 pos_lim_flag "min - max position linit enable (0: disable 1: enable)";
+CM_ SG_ 259 return_pulse_per_10ms "set return to home speed";
+CM_ SG_ 259 return_flag "return to home function enable (0: disable 1: enable)";
+CM_ SG_ 259 reset "controller reset";
+CM_ SG_ 259 encoder_update "sync absolute position to encoder position";
+CM_ SG_ 259 diag_enable "0x106 message activation (0: message off, 1: message on)";
+CM_ SG_ 260 servo_abs_pos "steering angle feedback (absolute position)";
+CM_ SG_ 260 encoder_pos "steering angle feedback";
+CM_ SG_ 261 RD "driver ready state (0: fault, 1: normal)";
+CM_ SG_ 261 ALM "driver warning state (0: fault, 1: normal)";
+CM_ SG_ 261 TLC "driver torque limit state (0: normal, 1: max torque)";
+CM_ SG_ 261 ZSP "zero speed state (0: motor run, 1: motor stop)";
+CM_ SG_ 261 INP "in-position state(0: angle control activate ,1: angle control complete)";
+CM_ SG_ 261 DO2 "reserved";
+CM_ SG_ 261 DO1 "reserved";
+CM_ SG_ 261 LOP "reserved";
+CM_ SG_ 261 LSN "reserved";
+CM_ SG_ 261 LSP "reserved";
+CM_ SG_ 261 EMG "reserved";
+CM_ SG_ 261 CR "absolute position clear command monitor";
+CM_ SG_ 261 RES "driver reset command monitor";
+CM_ SG_ 261 TL "reserved";
+CM_ SG_ 261 PC "reserved";
+CM_ SG_ 261 SON "actuator enable command monitor";
+CM_ SG_ 262 fsm_state_id "controller state / 0: start / 1: wait driver ready / 2: read absolute position  / 3: free wheeing / 4: wait RD on / 5: position control / 6: warning";
+CM_ SG_ 262 loop_count "alive counter(rolling counter)";
+CM_ SG_ 262 res422_recv_timeout "driver communication timeout error counter";
+CM_ SG_ 262 rs422_recv_count "driver communication counter";
+CM_ SG_ 262 can_error_count "CAN communication error counter";
+CM_ SG_ 262 rs422_error_count "driver communication error counter";
+CM_ SG_ 262 rs422_error_state "reserved";
+CM_ SG_ 263 last_backward_pulse "reserved";
+CM_ SG_ 263 last_forward_pulse "reserved";
+CM_ SG_ 264 encoder_offset "reserved";
+CM_ SG_ 265 limit_max "set upper limit (pos)";
+CM_ SG_ 265 limit_min "set lower limit (pos)";
+BA_DEF_ BO_  "GenMsgCycleTime" INT 0 65535;
+BA_DEF_ SG_  "GenSigStartValue" FLOAT 0 100000000000;
+BA_DEF_DEF_  "GenMsgCycleTime" 0;
+BA_DEF_DEF_  "GenSigStartValue" 0.0;
+BA_ "GenSigStartValue" SG_ 256 TLA 255;
+BA_ "GenSigStartValue" SG_ 256 DO2 0;
+BA_ "GenSigStartValue" SG_ 256 DO1 0;
+BA_ "GenSigStartValue" SG_ 256 LOP 0;
+BA_ "GenSigStartValue" SG_ 256 LSN 1;
+BA_ "GenSigStartValue" SG_ 256 LSP 1;
+BA_ "GenSigStartValue" SG_ 256 EMG 1;
+BA_ "GenSigStartValue" SG_ 256 CR 0;
+BA_ "GenSigStartValue" SG_ 256 RES 0;
+BA_ "GenSigStartValue" SG_ 256 TL 0;
+BA_ "GenSigStartValue" SG_ 256 PC 0;
+BA_ "GenSigStartValue" SG_ 256 SON 0;
+BA_ "GenMsgCycleTime" BO_ 257 10;
+BA_ "GenSigStartValue" SG_ 259 pos_lim_flag 1;
+BA_ "GenSigStartValue" SG_ 259 return_pulse_per_10ms 0;
+BA_ "GenSigStartValue" SG_ 259 return_flag 0;
+BA_ "GenSigStartValue" SG_ 259 reset 0;
+BA_ "GenSigStartValue" SG_ 259 encoder_update 0;
+BA_ "GenSigStartValue" SG_ 259 diag_enable 0;
+BA_ "GenMsgCycleTime" BO_ 260 10;
+BA_ "GenMsgCycleTime" BO_ 261 10;
+BA_ "GenMsgCycleTime" BO_ 262 10;
+BA_ "GenSigStartValue" SG_ 265 limit_max 32400;
+BA_ "GenSigStartValue" SG_ 265 limit_min -32400;
+
+
+
+

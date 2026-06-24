@@ -1,0 +1,31 @@
+# @copyright Chungbuk National University, Autonomous Vehicle Laboratory, 2026. All rights reserved.
+#            Subject to limited distribution and restricted disclosure only.
+#
+# @file      Dockerfile.vecu
+# @brief     IONIQ5 vECU container image (role 1: Target ECU, headless)
+#
+# @date      2026-06-24 created by Junhyeok Seo (jun2342@chungbuk.ac.kr)
+#
+# The container is the Target ECU box. It reads only the official CAN matrix (dbc),
+# receives commands (RX) and transmits actuator state (TX) on vcan0. The GUI (console/)
+# runs host-native outside the container and is not part of this image.
+#
+# build context = project root (ioniq5-vecu/). See docker-compose.yml.
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install dependencies first (layer cache efficiency)
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Source + the committed CAN definitions (dbc is the single source of truth)
+COPY src/ ./src/
+COPY dbc/ ./dbc/
+
+ENV PYTHONPATH=/app/src \
+    PYTHONUNBUFFERED=1
+
+# vcan0 is created/brought up by the host and shared via network_mode: host (no NET_ADMIN).
+# The manual-input UDP (127.0.0.1:47100) also works with host networking to the host console.
+CMD ["python", "-m", "ioniq5_vecu.vecu", "--channel", "vcan0"]
