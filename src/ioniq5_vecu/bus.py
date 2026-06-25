@@ -26,7 +26,7 @@ from __future__ import annotations
 import threading
 import time
 from pathlib import Path
-from typing import Callable, Iterator, Optional
+from typing import Callable, Iterator, Optional, Tuple
 
 import can
 import cantools
@@ -40,8 +40,11 @@ DBC_DIR = ROOT / "dbc"
 DEFAULT_CHANNEL = "vcan0"
 DEFAULT_INTERFACE = "socketcan"
 
-# Decode result (message name, signal dict, raw frame)
-DecodedFrame = tuple[str, dict, can.Message]
+# Decode result (message name, signal dict, raw frame).
+# typing.Tuple (not builtin tuple[...]) so this module-level alias evaluates on
+# Python 3.8 too - `from __future__ import annotations` only defers annotations,
+# not this assignment.
+DecodedFrame = Tuple[str, dict, can.Message]
 
 
 def load_database(dbc_dir: Path | str = DBC_DIR) -> Database:

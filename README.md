@@ -27,8 +27,12 @@ and driven manually from the keyboard.
 ## Quick start
 
 ### 1. Bring up the virtual CAN on the host (once)
+**`can-utils` is required** - the lab procedure uses `candump` to verify the bus, so
+install it before anything else (`ip`/`modprobe` are already on a standard Ubuntu host).
 ```bash
+sudo apt install can-utils       # REQUIRED - candump/cansend (Debian/Ubuntu)
 ./scripts/setup_vcan.sh          # modprobe vcan + create/up vcan0
+candump vcan0                    # leave running to verify - frames appear once the vECU starts
 ```
 
 ### 2. Run the vECU (native)
@@ -74,7 +78,7 @@ SON/override + target triangle wave.
 PYTHONPATH=src .venv/bin/python -m ioniq5_vecu.ecus.steering --demo
 PYTHONPATH=src .venv/bin/python -m ioniq5_vecu.ecus.brake --demo
 PYTHONPATH=src .venv/bin/python -m ioniq5_vecu.ecus.accel --demo
-candump vcan0                    # inspect frames (can-utils)
+candump vcan0                    # inspect frames (can-utils, installed in step 1)
 ```
 
 ## Directory layout
