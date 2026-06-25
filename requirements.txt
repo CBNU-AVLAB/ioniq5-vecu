@@ -4,11 +4,12 @@
 # their newest releases, so version caps below apply ONLY on the affected
 # interpreters (3.8/3.9) - newer interpreters (e.g. the 3.11 container) still get
 # the latest. pip selects the right version automatically via these markers.
-python-can>=4.0                              # SocketCAN (vcan0) send/receive
-python-can<4.6 ; python_version < "3.9"      #   4.6+ requires Python >=3.9
 
-cantools>=39                                 # dbc encode/decode (single source of truth)
-cantools<41 ; python_version < "3.10"        #   41+ requires Python >=3.10 (40.x = 3.9+)
-cantools<40 ; python_version < "3.9"         #   40+ requires Python >=3.9
+python-can>=4.0, <4.6 ; python_version < "3.9"
+python-can>=4.0 ; python_version >= "3.9"
 
-openpyxl>=3.1                                # parse spec/*.xlsx (tools/xlsx_to_dbc.py, generates dbc at build time)
+cantools>=39, <40 ; python_version < "3.9"
+cantools>=39, <41 ; python_version == "3.9"
+cantools>=39 ; python_version >= "3.10"
+
+openpyxl>=3.1
