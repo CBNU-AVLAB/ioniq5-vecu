@@ -39,7 +39,7 @@ candump vcan0                    # leave running to verify - frames appear once 
 `.venv` is not tracked by git (.gitignore), so create it fresh after cloning.
 ```bash
 python3 -m venv .venv                            # on Debian/Ubuntu first: sudo apt install python3-venv
-.venv/bin/pip install -r requirements.txt        # python-can / cantools / openpyxl
+.venv/bin/pip install -r requirements.txt        # python-can / cantools / openpyxl / pygame
 
 # vECU runtime (steering + braking + acceleration, one shared bus)
 PYTHONPATH=src .venv/bin/python -m ioniq5_vecu.vecu
@@ -48,7 +48,6 @@ PYTHONPATH=src .venv/bin/python -m ioniq5_vecu.vecu
 ### 3. Cluster + keyboard (host-native)
 ```bash
 .venv/bin/python console/cluster.py                 # http://127.0.0.1:8088 (stdlib only)
-.venv/bin/pip install -r requirements-console.txt   # input.py needs pygame
 .venv/bin/python console/input.py                   # Left/Right steer, Up accel, Down brake
 ```
 > Car images live in `console/assets/` (`ioniq5_basic.png`, `ioniq5_brake.png`); a

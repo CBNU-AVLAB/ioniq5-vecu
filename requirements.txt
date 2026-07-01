@@ -13,3 +13,4 @@ cantools>=39, <41 ; python_version == "3.9"
 cantools>=39 ; python_version >= "3.10"
 
 openpyxl>=3.1
+pygame>=2.5

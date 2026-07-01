@@ -1,4 +1,0 @@
-# Extra dependencies for the host cluster/keyboard (console/).
-# cluster.py uses only stdlib (http.server), but input.py (keyboard) needs pygame.
--r requirements.txt
-pygame>=2.5
