@@ -63,8 +63,14 @@ PYTHONPATH=src .venv/bin/python -m ioniq5_vecu.vecu
 The container ships only Role 1 (the headless Target ECU); the GUI runs host-native.
 ```bash
 docker compose -f docker/docker-compose.yml up --build
-docker compose -f docker/docker-compose.yml down
+docker compose -f docker/docker-compose.yml down     # stop AND remove the container + network
 ```
+> `Ctrl+C` on `up` only **stops** the container (it stays as `Exited` in `docker ps -a`);
+> `down` also **removes** it (containers + compose network). To do both in one step —
+> run in the foreground and auto-remove on `Ctrl+C` — use the helper script:
+> ```bash
+> ./scripts/run_docker.sh            # up --build, then `down` on exit (Ctrl+C included)
+> ```
 > The image bundles only the committed `src/` and `dbc/` (the dbc files are the single
 > source of truth), so there is no build-time generation step.
 
