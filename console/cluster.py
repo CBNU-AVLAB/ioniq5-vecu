@@ -6,6 +6,8 @@
 # @brief     IONIQ5 web instrument cluster (display only)
 #
 # @date      2026-06-24 created by Junhyeok Seo (jun2342@chungbuk.ac.kr)
+#            2026-07-17 updated by Junhyeok Seo (jun2342@chungbuk.ac.kr)
+#              : receive gear over gear_link and feed it to the display + speed model
 """IONIQ5 instrument cluster (host-native, display only).
 
 Decodes the official TX frames on vcan0 and shows them as a ccNC-style web cluster.
@@ -42,6 +44,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from ioniq5_vecu.bus import CanBus  # noqa: E402
 from ioniq5_vecu.config import ACCEL, BRAKE, STEERING  # noqa: E402
 
+from gear_link import DEFAULT_GEAR, GearReceiver  # console/gear_link.py  # noqa: E402
 from vehicle_model import VehicleModel  # console/vehicle_model.py  # noqa: E402
 
 WEB_DIR = HERE / "web"
@@ -93,6 +96,7 @@ class ClusterState:
         self.brake_ctrl = False
         self.brake_fault = False
         self.accel_ctrl = False
+        self.gear = DEFAULT_GEAR  # display-only gear (input.py keyboard -> gear_link UDP)
         self._last_rx = 0.0    # last frame rx time (monotonic); 0 = never received
 
     def update(self, name: str, signals: dict) -> None:
@@ -128,6 +132,11 @@ class ClusterState:
         with self._lock:
             self.speed = kmh
 
+    def set_gear(self, gear: str) -> None:
+        """Apply the gear letter received over gear_link (UDP) (display only)."""
+        with self._lock:
+            self.gear = gear
+
     def snapshot(self) -> dict:
         with self._lock:
             brake_mm = self.brake_mm
@@ -148,6 +157,7 @@ class ClusterState:
                 "brake_ctrl": self.brake_ctrl,
                 "brake_fault": self.brake_fault,
                 "accel_ctrl": self.accel_ctrl,
+                "gear": self.gear,
             }
 
 
@@ -174,7 +184,8 @@ def _vehicle_loop(state: ClusterState, stop: threading.Event,
         last = now
         snap = state.snapshot()
         state.set_speed(
-            vm.step(dt, snap["accel_pct"], snap["brake_mm"], snap["brake_max_mm"])
+            vm.step(dt, snap["accel_pct"], snap["brake_mm"], snap["brake_max_mm"],
+                    snap["gear"])
         )
         stop.wait(period)
 
@@ -267,9 +278,13 @@ def run(channel: str = "vcan0", interface: str = "socketcan",
     )
     vehicle.start()
 
+    # gear display (input.py keyboard -> console-internal UDP). Just reflect the gear into state.
+    gear_rx = GearReceiver(on_gear=state.set_gear).start()
+
     httpd = ThreadingHTTPServer((host, port), _make_handler(state, stream_hz))
     httpd.daemon_threads = True
     print(f"[cluster] http://{host}:{port}  (vcan: {channel}/{interface})  Ctrl-C to quit")
+    print(f"[cluster] gear rx :{gear_rx.port} (input.py PRND keys)")
     if not (ASSETS_DIR / "ioniq5_basic.png").exists():
         print("[cluster] note: without console/assets/ioniq5_basic.png(+_brake.png) "
               "a fallback render is used.")
@@ -279,6 +294,7 @@ def run(channel: str = "vcan0", interface: str = "socketcan",
         print("\n[cluster] stopped")
     finally:
         stop.set()
+        gear_rx.stop()
         httpd.shutdown()
 
 

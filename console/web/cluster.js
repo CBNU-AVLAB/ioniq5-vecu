@@ -6,6 +6,8 @@
  * @brief     IONIQ5 ccNC-style cluster renderer (display only)
  *
  * @date      2026-06-24 created by Junhyeok Seo (jun2342@chungbuk.ac.kr)
+ *            2026-07-17 updated by Junhyeok Seo (jun2342@chungbuk.ac.kr)
+ *              : add gear (PRND) display, reverse/parking visuals, mirrored steering & road tuning
  */
 "use strict";
 // Receives vECU state from /stream (SSE) and draws it on Canvas. Nothing is sent on the bus.
@@ -49,6 +51,7 @@ let target = {
   steer_ctrl: false, steer_fault: false,
   brake_ctrl: false, brake_fault: false,
   accel_ctrl: false,
+  gear: "P",
 };
 let cur = Object.assign({}, target);
 
@@ -71,6 +74,7 @@ const icoManual = loadImg("/assets/indicator_manual.png");
 const icoSteer = loadImg("/assets/indicator_steering.png");
 const icoBrake = loadImg("/assets/indicator_brake.png");
 const icoAccel = loadImg("/assets/indicator_accel.png");
+const icoParking = loadImg("/assets/indicator_parking_brake.png");
 
 // source-in compositing keeps the icon alpha (shape) and fills a solid color.
 // (each icon x color combo is built once and cached)
@@ -90,6 +94,26 @@ function tinted(img, color) {
   o.fillRect(0, 0, off.width, off.height);
   _tintCache.set(key, off);
   return off;
+}
+
+// -- car / per-gear display tuning constants (tune position/size here) -------
+const CAR_W = 150;                    // car width (design px)
+const CAR_BASE_Y = DESIGN_H * 0.64;   // car top y in normal driving
+const CAR_LIFT = -200;                // upward shift in R (negative = up)
+const CAR_HOME_EPS = 2;               // within this = "back home" (delays lane re-show)
+let carLift = 0;                      // actual applied offset (eased on R transition)
+
+// R reverse parking guide (light yellow curves)
+const GUIDE_COL = "rgba(255,236,120,0.85)";
+// R reverse lights (car rear)
+const REV_LIGHT = { w: 0.04, h: 0.03, y: 0.6, dx: 0.19, color: "#fffdf5", glow: 16 };
+// P parking-brake indicator (bottom-left, red)
+const PARK_ICON = { x: 5, y: DESIGN_H - 40, size: 40 };
+
+function carHeight() {
+  const img = cur.brake_on ? carBrake : carBasic;
+  return (img.ready && img.naturalWidth)
+    ? CAR_W * (img.naturalHeight / img.naturalWidth) : CAR_W * 0.55;
 }
 
 // -- SSE ---------------------------------------------------------------------
@@ -177,7 +201,9 @@ function gauge(cx, cy, R, o) {
 
   // main value (thick top arc)
   if (o.bidir) {
-    const ang = MAIN_MID + clamp(o.value / o.max, -1, 1) * ((MAIN_A1 - MAIN_A0) / 2);
+    // mirror=true: fill positive values to the left (matches HILS/CARLA left/right). Number unchanged.
+    const dir = o.mirror ? -1 : 1;
+    const ang = MAIN_MID + dir * clamp(o.value / o.max, -1, 1) * ((MAIN_A1 - MAIN_A0) / 2);
     arc(cx, cy, Rmain, Math.min(MAIN_MID, ang), Math.max(MAIN_MID, ang), R * 0.078, o.color);
   } else {
     const f = clamp(o.value / o.max, 0, 1);
@@ -197,13 +223,34 @@ function gauge(cx, cy, R, o) {
 }
 
 // (3) center: lane that actually bends with steering via t^2 + car
+//   - the near (bottom) center is always fixed to the car center (cx); only the far (top) end bends.
+//   - the centerline is left/right symmetric, so full-left and full-right steering mirror each other.
+//
+// -- road (drivable area) tuning ---------------------------------------------
+//   position/size/bend are all adjusted only here.
+//   * halfTop/halfBot are auto-capped so they never exceed GRAY_HALF (gray divider half-width).
+//   * the road is clipped inside the gray divider width (cx +/- GRAY_HALF) so it never overlaps the side arcs.
+const GRAY_HALF = 155;   // indicators() divider half-width = line width / display-area cap
+const ROAD = {
+  halfTop: 60,     // far (top) half-width      <- tune directly
+  halfBot: 120,    // near (bottom) half-width   <- tune directly (capped at GRAY_HALF)
+  topY: 230,       // top start y   <- tune directly (smaller = higher; cluster middle ~300)
+  botY: 540,       // bottom end y  <- tune directly
+  topBend: 190,    // far (top) bend amount <- tune directly (larger = bends more)
+};
 function road() {
-  const cx = DESIGN_W / 2, topY = 128, botY = 548;
-  const halfBot = 150, halfTop = 12;
-  const bend = clamp(cur.steer_deg / cur.steer_limit, -1, 1) * 190;
+  const cx = DESIGN_W / 2, topY = ROAD.topY, botY = ROAD.botY;
+  // cap half-widths so the lane never exceeds the gray divider width
+  const halfBot = Math.min(ROAD.halfBot, GRAY_HALF);
+  const halfTop = Math.min(ROAD.halfTop, GRAY_HALF);
+  // bend positive angles to the left (matches HILS/CARLA left/right). Displayed steer_deg unchanged.
+  //  dir>0 -> road bends to the right (+x) (wheel turned right).
+  const dir = clamp(cur.steer_deg / cur.steer_limit, -1, 1) * -1;
+  const topBend = dir * ROAD.topBend;    // only the far (top) end moves; the near (t=0) end stays at cx
   const N = 28;
 
-  const center = (t) => cx + bend * t * t;             // curve centerline (straight near -> bends far)
+  // near (t=0) center = cx (car center); bends by topBend toward the far (t=1) end.
+  const center = (t) => cx + topBend * t * t;
   const halfW = (t) => halfTop + (halfBot - halfTop) * Math.pow(1 - t, 1.55);
   const sample = (side) => {
     const pts = [];
@@ -217,33 +264,63 @@ function road() {
 
   ctx.save();
   ctx.beginPath();
-  ctx.rect(590, topY - 12, DESIGN_W - 590 * 2, botY - topY + 60);
+  // draw the road only within the gray divider width (cx +/- GRAY_HALF) (avoids overlapping the side arcs).
+  ctx.rect(cx - GRAY_HALF, topY - 12, GRAY_HALF * 2, botY - topY + 60);
   ctx.clip();
 
-  // road surface
-  ctx.beginPath();
-  ctx.moveTo(L[0][0], L[0][1]);
-  for (const p of L) ctx.lineTo(p[0], p[1]);
-  for (let i = Rr.length - 1; i >= 0; i--) ctx.lineTo(Rr[i][0], Rr[i][1]);
-  ctx.closePath();
-  ctx.fillStyle = COL.road;
-  ctx.fill();
-
-  // side lanes (no center dashes)
-  strokePath(L, COL.lane, 3);
-  strokePath(Rr, COL.lane, 3);
+  // In reverse (R), erase the road (surface + lanes) and draw only the parking guide. After leaving R,
+  // the surface/lanes reappear only once the car has settled back home (carLift returns).
+  if (cur.gear === "R") {
+    reverseGuides(cx);                       // reverse: guide lines behind the car (inside the clip)
+  } else if (carLift > -CAR_HOME_EPS) {
+    // road surface
+    ctx.beginPath();
+    ctx.moveTo(L[0][0], L[0][1]);
+    for (const p of L) ctx.lineTo(p[0], p[1]);
+    for (let i = Rr.length - 1; i >= 0; i--) ctx.lineTo(Rr[i][0], Rr[i][1]);
+    ctx.closePath();
+    ctx.fillStyle = COL.road;
+    ctx.fill();
+    // side lanes (no center dashes)
+    strokePath(L, COL.lane, 3);
+    strokePath(Rr, COL.lane, 3);
+  }
   ctx.restore();
 
   drawCar(cx);
 }
 
+// R reverse parking guide: curves reaching from the car rear toward the camera (bottom), bending with steering.
+function reverseGuides(cx) {
+  const y0 = CAR_BASE_Y + carLift + carHeight() + 6;  // start right behind the car
+  const y1 = 540;
+  const halfTop = 34, halfBot = Math.min(ROAD.halfBot, GRAY_HALF);  // near car width -> toward camera (<= gray divider width)
+  const bend = clamp(cur.steer_deg / cur.steer_limit, -1, 1) * -120;  // same direction as road
+  const N = 20;
+  const center = (t) => cx + bend * t * t;
+  const halfW = (t) => halfTop + (halfBot - halfTop) * t;
+  const sample = (side) => {
+    const pts = [];
+    for (let i = 0; i <= N; i++) {
+      const t = i / N;
+      pts.push([center(t) + side * halfW(t), y0 + (y1 - y0) * t]);
+    }
+    return pts;
+  };
+  strokePath(sample(-1), GUIDE_COL, 4);
+  strokePath(sample(1), GUIDE_COL, 4);
+  // distance bands (3 horizontal lines)
+  for (const t of [0.33, 0.62, 0.9]) {
+    const y = y0 + (y1 - y0) * t, c = center(t), hw = halfW(t);
+    strokePath([[c - hw, y], [c + hw, y]], GUIDE_COL, 3);
+  }
+}
+
 function drawCar(cx) {
   const img = cur.brake_on ? carBrake : carBasic;
-  const cw = 150;                       // width kept moderate (keep aspect ratio, avoid squashing)
-  const y = DESIGN_H * 0.65;            // start ~1/4 up from the bottom
-  // keep image natural aspect (fit width, height follows ratio)
-  let ch = cw * 0.55;
-  if (img.ready && img.naturalWidth) ch = cw * (img.naturalHeight / img.naturalWidth);
+  const cw = CAR_W;                     // fixed width (keep aspect ratio, avoid squashing)
+  const y = CAR_BASE_Y + carLift;       // shifted up in R (smoothly eased)
+  const ch = carHeight();
   const x = cx - cw / 2;
   if (img.ready) {
     ctx.drawImage(img, x, y, cw, ch);
@@ -253,6 +330,28 @@ function drawCar(cx) {
     ctx.fillStyle = cur.brake_on ? COL.brake : "#5b6068";
     ctx.fillRect(x + cw * 0.12, y + ch * 0.22, cw * 0.76, ch * 0.16);
   }
+  if (cur.gear === "R") drawReverseLights(x, y, cw, ch);
+}
+
+// R reverse lights (car rear left/right, bright). Position/size via REV_LIGHT constants.
+function drawReverseLights(x, y, cw, ch) {
+  const lw = cw * REV_LIGHT.w, lh = ch * REV_LIGHT.h;
+  const cy = y + ch * REV_LIGHT.y, cx = x + cw / 2;
+  ctx.save();
+  ctx.shadowColor = REV_LIGHT.color;
+  ctx.shadowBlur = REV_LIGHT.glow;
+  ctx.fillStyle = REV_LIGHT.color;
+  for (const s of [-1, 1]) {
+    roundRect(cx + s * cw * REV_LIGHT.dx - lw / 2, cy - lh / 2, lw, lh, 3);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+// P parking-brake indicator (bottom-left, red)
+function parkingIndicator() {
+  const t = tinted(icoParking, COL.indRed);
+  if (t) ctx.drawImage(t, PARK_ICON.x, PARK_ICON.y, PARK_ICON.size, PARK_ICON.size);
 }
 
 // bottom center: rounded-top rect (left ACCESS icon / right gear) - ccNC look
@@ -275,8 +374,8 @@ function bottomBar() {
   if (cur.connected) {
     text("ACCESS", x + 30, cy, 22, COL.access, "left", "700");
   }
-  // right: gear
-  text("D", x + w - 30, cy, 28, COL.text, "right", "700");
+  // right: gear (input.py PRND keys -> gear_link UDP -> snapshot.gear)
+  text(cur.gear, x + w - 30, cy, 28, COL.text, "right", "700");
 }
 
 // top-center indicators (MANUAL/STEER/BRAKE/ACCEL) + a divider line.
@@ -345,6 +444,8 @@ function logo() {
 function smooth() {
   const t = 0.18;
   cur.speed = lerp(cur.speed, target.speed, t);
+  // steer renders encoder_pos as-is -> left/right matches HILS/CARLA (direct real-ECU link, the reference).
+  // (the cluster is display-only, so the sign is just a render convention and never touches bus data)
   cur.steer_deg = lerp(cur.steer_deg, target.steer_deg, t);
   cur.accel_pct = lerp(cur.accel_pct, target.accel_pct, t);
   cur.brake_mm = lerp(cur.brake_mm, target.brake_mm, t);
@@ -358,6 +459,9 @@ function smooth() {
   cur.brake_ctrl = target.brake_ctrl;
   cur.brake_fault = target.brake_fault;
   cur.accel_ctrl = target.accel_ctrl;
+  cur.gear = target.gear;
+  // lift the car up in R (smoothly); return home when switched to another gear
+  carLift = lerp(carLift, cur.gear === "R" ? CAR_LIFT : 0, 0.1);
 }
 
 function frame() {
@@ -389,7 +493,7 @@ function frame() {
   });
   // (2) steer (right, bidirectional)  +  (5) brake (bottom-right)
   gauge(rx, cy, R, {
-    value: cur.steer_deg, max: cur.steer_limit, bidir: true, ringColor: COL.ringR,
+    value: cur.steer_deg, max: cur.steer_limit, bidir: true, mirror: true, ringColor: COL.ringR,
     big: `${cur.steer_deg >= 0 ? "+" : ""}${cur.steer_deg.toFixed(0)}°`,
     unit: "deg", color: COL.steer,
     bottomValue: cur.brake_mm, bottomMax: cur.brake_max_mm,
@@ -401,6 +505,7 @@ function frame() {
   road();
   bottomBar();
   indicators();
+  if (cur.gear === "P") parkingIndicator();   // P: bottom-left parking-brake light (red)
   logo();
 
   requestAnimationFrame(frame);

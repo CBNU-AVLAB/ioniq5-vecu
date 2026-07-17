@@ -4,7 +4,7 @@
 
 <br clear="all">
 
-A **virtual Target ECU (vECU)** for IONIQ5 HILS. Even without the three real actuator
+A **virtual Target ECU (vECU)** for IONIQ5 VILS. Even without the three real actuator
 controllers (steering ADA-S, braking ADA-B, acceleration ADE-A), a Docker container
 emulates them and exchanges the same CAN frames as the real hardware over a virtual
 CAN bus (vcan0). On the host (laptop) the state is shown on an IONIQ5-style web cluster
@@ -14,7 +14,7 @@ and driven manually from the keyboard.
 
 ## Architecture (role separation)
 
-![System Architecture](docs/system_architecture.png)
+![System Architecture](docs/system_architecture_update.png)
 
 - **The dbc files are the single source of truth for the CAN matrix.** All
   encoding/decoding goes through cantools using `dbc/*.dbc` (no magic numbers). The
@@ -23,6 +23,11 @@ and driven manually from the keyboard.
   matrix has no message for "a human moves it by hand"). Only spec frames flow on vcan0.
 - **Speed is not in the matrix**, so it is derived from acceleration/braking on the
   display side (`console/vehicle_model.py`).
+
+## Execution environment
+
+- **OS:** Ubuntu 22.04 LTS
+- **Python:** developed and tested on 3.10 (the host console also runs on 3.8+).
 
 ## Quick start
 

@@ -6,16 +6,23 @@
 # @brief     Manual control keyboard input (host-native)
 #
 # @date      2026-06-24 created by Junhyeok Seo (jun2342@chungbuk.ac.kr)
+#            2026-07-17 updated by Junhyeok Seo (jun2342@chungbuk.ac.kr)
+#              : add PRND gear keys and mirror steering sign (left +1 / right -1)
 """Manual keyboard input (host-native).
 
 Maps arrow keys to manual control inputs and sends them to the container vECU over a
 UDP side channel. The official CAN matrix has no "human moves it by hand" message, so
 this goes over localhost UDP, never on vcan0.
 
-  Left/Right : steer rate (-1/+1)   Up : accel   Down : brake   ESC/close : quit
+  Left/Right : steer rate (left +1 / right -1, left positive -- matches HILS/CARLA direction)
+  Up : accel   Down : brake
+  P/R/N/D : change gear display (cluster text only -- no other effect)   ESC/close : quit
 
 Key->payload mapping is isolated in the pure function keys_to_manual() so it can be
 tested without pygame/display. pygame is used only for key capture and rendering.
+
+Gear is a display value unrelated to the vECU/CAN, so it goes to cluster.py over the
+console-internal UDP channel (gear_link), not the manual channel -- only spec frames on vcan0.
 """
 from __future__ import annotations
 
@@ -32,12 +39,18 @@ from ioniq5_vecu.io.manual_protocol import (  # noqa: E402
     ManualInput,
 )
 
+from gear_link import DEFAULT_GEAR, GearSender  # console/gear_link.py  # noqa: E402
+
 SEND_HZ = 50  # send key state 50x/sec (rate-based: stops the vECU if it stalls)
 
 
 def keys_to_manual(left: bool, right: bool, up: bool, down: bool) -> ManualInput:
-    """Pressed arrow keys (bool) -> ManualInput. Pure function (easy to test)."""
-    steer = (1.0 if right else 0.0) - (1.0 if left else 0.0)
+    """Pressed arrow keys (bool) -> ManualInput. Pure function (easy to test).
+
+    Steer sign: left = +1 / right = -1. A positive encoder_pos is left (per HILS/CARLA),
+    so left is kept positive to match the key, the screen, HILS and CARLA directions.
+    """
+    steer = (1.0 if left else 0.0) - (1.0 if right else 0.0)
     accel = 1.0 if up else 0.0
     brake = 1.0 if down else 0.0
     return ManualInput(steer=steer, brake=brake, accel=accel)
@@ -52,7 +65,15 @@ def run(host: str = MANUAL_HOST, port: int = MANUAL_PORT) -> None:
     font = pygame.font.SysFont(None, 22)
     clock = pygame.time.Clock()
 
+    # key -> gear (display only). Changes once on the press (KEYDOWN).
+    gear_keys = {
+        pygame.K_p: "P", pygame.K_r: "R", pygame.K_n: "N", pygame.K_d: "D",
+    }
+
     sender = ManualSender(host, port)
+    gear_sender = GearSender()
+    gear = DEFAULT_GEAR
+    gear_sender.send(gear)  # sync the initial gear if the cluster is already up
     print(f"[input] sending manual input -> {host}:{port}  (ESC/close to quit)")
     try:
         running = True
@@ -60,8 +81,12 @@ def run(host: str = MANUAL_HOST, port: int = MANUAL_PORT) -> None:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
-                elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                    running = False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        running = False
+                    elif event.key in gear_keys:
+                        gear = gear_keys[event.key]
+                        gear_sender.send(gear)
 
             k = pygame.key.get_pressed()
             mi = keys_to_manual(
@@ -74,13 +99,15 @@ def run(host: str = MANUAL_HOST, port: int = MANUAL_PORT) -> None:
 
             screen.fill((20, 20, 28))
             txt = f"steer {mi.steer:+.0f}   accel {mi.accel:.0f}   brake {mi.brake:.0f}"
-            screen.blit(font.render(txt, True, (220, 220, 230)), (16, 48))
+            screen.blit(font.render(txt, True, (220, 220, 230)), (16, 40))
+            screen.blit(font.render(f"gear {gear}", True, (150, 210, 150)), (16, 70))
             pygame.display.flip()
             clock.tick(SEND_HZ)
     finally:
         # one neutral on exit (staleness also stops it, but stop immediately)
         sender.send(ManualInput())
         sender.close()
+        gear_sender.close()
         pygame.quit()
         print("[input] stopped")
 
