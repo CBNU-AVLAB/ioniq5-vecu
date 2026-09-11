@@ -1,18 +1,12 @@
 #!/usr/bin/env bash
-# @copyright Chungbuk National University, Autonomous Vehicle Laboratory, 2026. All rights reserved.
-#            Subject to limited distribution and restricted disclosure only.
+# @copyright (c) 2026 Autonomous Vehicle Laboratory, Chungbuk National University
+#            SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 #
 # @file      run_docker.sh
 # @brief     Build + run the vECU container, and remove it on exit
 #
 # @date      2026-07-08 created by Junhyeok Seo (jun2342@chungbuk.ac.kr)
-#
-# Bring the vECU container up in the foreground. On Ctrl+C (or any exit) the
-# container and its compose network are torn down (`docker compose down`), so no
-# stopped `Exited` container is left behind.
-#
-# Prerequisite: bring up the virtual CAN on the host first.
-#     ./scripts/setup_vcan.sh
+
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

@@ -1,12 +1,13 @@
 /**
- * @copyright Chungbuk National University, Autonomous Vehicle Laboratory, 2026. All rights reserved.
- *            Subject to limited distribution and restricted disclosure only.
+ * @copyright (c) 2026 Autonomous Vehicle Laboratory, Chungbuk National University
+ *            SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
  *
  * @file      style.css
  * @brief     IONIQ5 web cluster styles (full-screen canvas)
  *
  * @date      2026-06-24 created by Junhyeok Seo (jun2342@chungbuk.ac.kr)
  */
+ 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 html, body {

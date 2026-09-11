@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-# @copyright Chungbuk National University, Autonomous Vehicle Laboratory, 2026. All rights reserved.
-#            Subject to limited distribution and restricted disclosure only.
+# @copyright (c) 2026 Autonomous Vehicle Laboratory, Chungbuk National University
+#            SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 #
 # @file      input.py
 # @brief     Manual control keyboard input (host-native)
@@ -8,7 +8,9 @@
 # @date      2026-06-24 created by Junhyeok Seo (jun2342@chungbuk.ac.kr)
 #            2026-07-17 updated by Junhyeok Seo (jun2342@chungbuk.ac.kr)
 #              : add PRND gear keys and mirror steering sign (left +1 / right -1)
-"""Manual keyboard input (host-native).
+
+"""
+Manual keyboard input (host-native).
 
 Maps arrow keys to manual control inputs and sends them to the container vECU over a
 UDP side channel. The official CAN matrix has no "human moves it by hand" message, so
@@ -24,6 +26,7 @@ tested without pygame/display. pygame is used only for key capture and rendering
 Gear is a display value unrelated to the vECU/CAN, so it goes to cluster.py over the
 console-internal UDP channel (gear_link), not the manual channel -- only spec frames on vcan0.
 """
+
 from __future__ import annotations
 
 import sys

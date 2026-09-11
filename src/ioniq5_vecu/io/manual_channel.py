@@ -1,11 +1,13 @@
-# @copyright Chungbuk National University, Autonomous Vehicle Laboratory, 2026. All rights reserved.
-#            Subject to limited distribution and restricted disclosure only.
+# @copyright (c) 2026 Autonomous Vehicle Laboratory, Chungbuk National University
+#            SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 #
 # @file      manual_channel.py
 # @brief     Manual control UDP side channel (sender/receiver)
 #
 # @date      2026-06-24 created by Junhyeok Seo (jun2342@chungbuk.ac.kr)
-"""Manual control UDP side channel.
+
+"""
+Manual control UDP side channel.
 
   ManualSender  : sender on the host console side (used by console/input.py).
   ManualChannel : receiver on the container vECU side. Holds the latest input for ECUs to read.
@@ -14,6 +16,7 @@ The receiver recvfrom's in a background thread and keeps the latest ManualInput 
 its receive time. get() applies staleness: if input stops (console quits / keys
 released) it returns NEUTRAL automatically, so the actuator stops.
 """
+
 from __future__ import annotations
 
 import socket

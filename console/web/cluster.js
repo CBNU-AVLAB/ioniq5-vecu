@@ -1,6 +1,6 @@
 /**
- * @copyright Chungbuk National University, Autonomous Vehicle Laboratory, 2026. All rights reserved.
- *            Subject to limited distribution and restricted disclosure only.
+ * @copyright (c) 2026 Autonomous Vehicle Laboratory, Chungbuk National University
+ *            SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
  *
  * @file      cluster.js
  * @brief     IONIQ5 ccNC-style cluster renderer (display only)
@@ -9,6 +9,7 @@
  *            2026-07-17 updated by Junhyeok Seo (jun2342@chungbuk.ac.kr)
  *              : add gear (PRND) display, reverse/parking visuals, mirrored steering & road tuning
  */
+
 "use strict";
 // Receives vECU state from /stream (SSE) and draws it on Canvas. Nothing is sent on the bus.
 // Fixed 8:3 design coordinate system (1600x600, real-car 12.3" ccNC ratio) letterbox-fit,

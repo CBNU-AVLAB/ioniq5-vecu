@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-# @copyright Chungbuk National University, Autonomous Vehicle Laboratory, 2026. All rights reserved.
-#            Subject to limited distribution and restricted disclosure only.
+# @copyright (c) 2026 Autonomous Vehicle Laboratory, Chungbuk National University
+#            SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 #
 # @file      gear_link.py
 # @brief     Console-internal UDP channel for gear display (display only, no vECU/CAN)
 #
 # @date      2026-07-17 created by Junhyeok Seo (jun2342@chungbuk.ac.kr)
-"""Console-internal UDP channel for gear display (display only, no vECU/CAN).
+
+"""
+Console-internal UDP channel for gear display (display only, no vECU/CAN).
 
 Gear (P/R/N/D) is not in the official CAN matrix and has nothing to do with the vECU
 physics; it is a pure "cluster display" value. So it is not put on vcan0 or the manual
@@ -19,6 +21,7 @@ channel (-> vECU); instead it flows only inside the same console, from input.py
 Unlike the manual channel there is no staleness -- a gear stays set until the next change
 (like a real gear). Unknown/broken values are ignored.
 """
+
 from __future__ import annotations
 
 import socket

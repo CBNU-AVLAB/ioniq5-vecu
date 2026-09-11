@@ -1,11 +1,13 @@
-# @copyright Chungbuk National University, Autonomous Vehicle Laboratory, 2026. All rights reserved.
-#            Subject to limited distribution and restricted disclosure only.
+# @copyright (c) 2026 Autonomous Vehicle Laboratory, Chungbuk National University
+#            SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 #
 # @file      accel.py
 # @brief     ADE-A acceleration vECU (APS pedal voltage emulator)
 #
 # @date      2026-06-24 created by Junhyeok Seo (jun2342@chungbuk.ac.kr)
-"""ADE-A acceleration vECU - APS pedal voltage emulator.
+
+"""
+ADE-A acceleration vECU - APS pedal voltage emulator.
 
 Not a servo (no position dynamics). By default it passes the driver pedal input (IN)
 through to the output (OUT); when an AD override command arrives, OUT follows the command.
@@ -21,6 +23,7 @@ OUT decision:
   both 0         -> OUT = IN (driver pedal as-is)
 IN is always the driver pedal (manual accel). BRK_S is the manual brake pedal.
 """
+
 from __future__ import annotations
 
 import threading

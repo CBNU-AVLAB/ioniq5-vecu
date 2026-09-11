@@ -1,11 +1,13 @@
-# @copyright Chungbuk National University, Autonomous Vehicle Laboratory, 2026. All rights reserved.
-#            Subject to limited distribution and restricted disclosure only.
+# @copyright (c) 2026 Autonomous Vehicle Laboratory, Chungbuk National University
+#            SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 #
 # @file      vecu.py
 # @brief     Integrated vECU runner (steering + brake + accel)
 #
 # @date      2026-06-24 created by Junhyeok Seo (jun2342@chungbuk.ac.kr)
-"""Integrated vECU runner - steering + brake + accel in one process on 1 CanBus + 1 ManualChannel.
+
+"""
+Integrated vECU runner - steering + brake + accel in one process on 1 CanBus + 1 ManualChannel.
 
 Running each ECU separately would (1) collide on the manual UDP port (47100) and
 (2) read the same vcan0 from multiple sockets. The integrated runner makes the ECUs
@@ -19,6 +21,7 @@ handle_frame (each ECU ignores frames that aren't its own).
   RX  (dispatcher)        -> SteeringEcu / BrakeEcu / AccelEcu.handle_frame
   TX  (each ECU control loop)  0x104 / 0x204 / 0x314 / 0x315  (sent on the shared bus)
 """
+
 from __future__ import annotations
 
 import threading

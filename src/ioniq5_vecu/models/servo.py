@@ -1,11 +1,13 @@
-# @copyright Chungbuk National University, Autonomous Vehicle Laboratory, 2026. All rights reserved.
-#            Subject to limited distribution and restricted disclosure only.
+# @copyright (c) 2026 Autonomous Vehicle Laboratory, Chungbuk National University
+#            SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 #
 # @file      servo.py
 # @brief     Single-axis position servo physical model
 #
 # @date      2026-06-24 created by Junhyeok Seo (jun2342@chungbuk.ac.kr)
-"""Single-axis position servo physical model (unit-agnostic, CAN/dbc-independent).
+
+"""
+Single-axis position servo physical model (unit-agnostic, CAN/dbc-independent).
 
 Used as-is for both steering (deg) and braking (mm) - the pure physics part (common
 logic collected, units/limits injected). It knows nothing about CAN encoding or
@@ -17,6 +19,7 @@ Behavior:
 * enable=False -> hold position at zero speed (control mode OFF). Manual back-drive
   pushes position directly via set_position() from outside (side channel).
 """
+
 from __future__ import annotations
 
 

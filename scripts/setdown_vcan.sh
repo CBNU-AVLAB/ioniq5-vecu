@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
-# @copyright Chungbuk National University, Autonomous Vehicle Laboratory, 2026. All rights reserved.
-#            Subject to limited distribution and restricted disclosure only.
+# @copyright (c) 2026 Autonomous Vehicle Laboratory, Chungbuk National University
+#            SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 #
 # @file      setdown_vcan.sh
 # @brief     Bring down and remove the virtual CAN (vcan0) on the host
 #
 # @date      2026-06-24 created by Junhyeok Seo (jun2342@chungbuk.ac.kr)
-#
-# Run on the host. Bring down and remove the virtual CAN (vcan0).
+
 set -euo pipefail
 
 DEV="${1:-vcan0}"

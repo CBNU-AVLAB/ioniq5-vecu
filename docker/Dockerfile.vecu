@@ -1,5 +1,5 @@
-# @copyright Chungbuk National University, Autonomous Vehicle Laboratory, 2026. All rights reserved.
-#            Subject to limited distribution and restricted disclosure only.
+# @copyright (c) 2026 Autonomous Vehicle Laboratory, Chungbuk National University
+#            SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 #
 # @file      Dockerfile.vecu
 # @brief     IONIQ5 vECU container image (role 1: Target ECU, headless)
@@ -22,6 +22,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Source + the committed CAN definitions (dbc is the single source of truth)
 COPY src/ ./src/
 COPY dbc/ ./dbc/
+
+# The generated dbc is derived from supplier material, so its notice must travel with it.
+COPY dbc/NOTICE.txt ./dbc/NOTICE.txt
+
+# PolyForm Notices clause: every copy of the software must include the full license text.
+COPY LICENSE.txt ./
 
 ENV PYTHONPATH=/app/src \
     PYTHONUNBUFFERED=1

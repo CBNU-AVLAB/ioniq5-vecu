@@ -1,11 +1,13 @@
-# @copyright Chungbuk National University, Autonomous Vehicle Laboratory, 2026. All rights reserved.
-#            Subject to limited distribution and restricted disclosure only.
+# @copyright (c) 2026 Autonomous Vehicle Laboratory, Chungbuk National University
+#            SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 #
 # @file      bus.py
 # @brief     vcan0 + cantools send/receive wrapper
 #
 # @date      2026-06-24 created by Junhyeok Seo (jun2342@chungbuk.ac.kr)
-"""vcan0 + cantools send/receive wrapper.
+
+"""
+vcan0 + cantools send/receive wrapper.
 
 Merges the three dbc/*.dbc files into one cantools Database and encodes (TX) /
 decodes (RX) by message name + signal dict over SocketCAN (vcan0). All bit packing
@@ -21,6 +23,7 @@ Key parts:
 For tests/offline, CanBus(interface="virtual", channel="...",
 receive_own_messages=True) gives loopback verification without a real vcan0.
 """
+
 from __future__ import annotations
 
 import threading

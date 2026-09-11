@@ -1,11 +1,13 @@
-# @copyright Chungbuk National University, Autonomous Vehicle Laboratory, 2026. All rights reserved.
-#            Subject to limited distribution and restricted disclosure only.
+# @copyright (c) 2026 Autonomous Vehicle Laboratory, Chungbuk National University
+#            SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 #
 # @file      steering.py
 # @brief     ADA-S steering vECU
 #
 # @date      2026-06-24 created by Junhyeok Seo (jun2342@chungbuk.ac.kr)
-"""ADA-S steering vECU.
+
+"""
+ADA-S steering vECU.
 
 A thin wrapper over the common servo engine (base_servo.BaseServoEcu) with the
 STEERING spec injected.
@@ -13,6 +15,7 @@ STEERING spec injected.
   TX  ADA_S_104 encoder_pos / servo_abs_pos  (10ms)
 Manual (SON=0): steer-rate integration back-drive.
 """
+
 from __future__ import annotations
 
 from typing import Optional

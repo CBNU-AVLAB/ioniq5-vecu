@@ -1,11 +1,13 @@
-# @copyright Chungbuk National University, Autonomous Vehicle Laboratory, 2026. All rights reserved.
-#            Subject to limited distribution and restricted disclosure only.
+# @copyright (c) 2026 Autonomous Vehicle Laboratory, Chungbuk National University
+#            SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 #
 # @file      brake.py
 # @brief     ADA-B braking vECU
 #
 # @date      2026-06-24 created by Junhyeok Seo (jun2342@chungbuk.ac.kr)
-"""ADA-B braking vECU.
+
+"""
+ADA-B braking vECU.
 
 A thin wrapper over the common servo engine (base_servo.BaseServoEcu) with the
 BRAKE spec injected. Same servo controller as steering - only units (mm), limits
@@ -14,6 +16,7 @@ BRAKE spec injected. Same servo controller as steering - only units (mm), limits
   TX  ADA_B_204 encoder_pos / servo_abs_pos  (10ms)
 Manual (SON=0): map the brake pedal (absolute 0..1) directly to 0~60mm stroke.
 """
+
 from __future__ import annotations
 
 from typing import Optional

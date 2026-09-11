@@ -1,0 +1,52 @@
+CAN matrix definitions (dbc/) — third-party material, published by permission
+================================================================================
+
+WHAT THESE FILES ARE
+
+  ADA_S.dbc, ADA_B.dbc, ADE_A.dbc describe the CAN matrix of the ADA-S
+  (steering), ADA-B (braking) and ADE-A (accelerator pedal emulator) actuator
+  controllers. They were generated from the controller supplier's CAN matrix
+  specification documents. The original specification documents are not
+  included in this repository.
+
+
+WHO OWNS THEM
+
+  The CAN matrix described by these files is the property of the controller
+  supplier, not of Chungbuk National University. The Autonomous Vehicle
+  Laboratory does not claim copyright in it.
+
+
+WHAT WAS PERMITTED
+
+  The supplier granted permission to PUBLISH these definitions in this
+  repository, so that the IONIQ5 VILS lecture material can be followed.
+
+  That permission covers publication only.
+
+
+WHAT IS NOT PERMITTED
+
+  No other rights are granted. In particular, this notice does not grant
+  permission to redistribute, mirror, republish, relicense, or create and
+  distribute derivative works from these files, whether on their own or as part
+  of another project.
+
+  LICENSE.txt (PolyForm Noncommercial License 1.0.0) does not apply to this
+  directory. That license covers the rest of this repository; it does not, and
+  cannot, cover material the licensor does not own.
+
+
+IF YOU NEED MORE THAN THAT
+
+  If you want to use these definitions outside of following the IONIQ5 VILS
+  lecture material — including redistributing them or publishing a work derived
+  from them — you must obtain permission from the controller supplier directly.
+  Please contact the laboratory below and we will point you to the right party.
+
+
+CONTACT
+
+  Autonomous Vehicle Laboratory, Chungbuk National University
+  Junhyeok Seo <jun2342@chungbuk.ac.kr>
+  https://github.com/CBNU-AVLAB

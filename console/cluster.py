@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-# @copyright Chungbuk National University, Autonomous Vehicle Laboratory, 2026. All rights reserved.
-#            Subject to limited distribution and restricted disclosure only.
+# @copyright (c) 2026 Autonomous Vehicle Laboratory, Chungbuk National University
+#            SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 #
 # @file      cluster.py
 # @brief     IONIQ5 web instrument cluster (display only)
@@ -8,7 +8,9 @@
 # @date      2026-06-24 created by Junhyeok Seo (jun2342@chungbuk.ac.kr)
 #            2026-07-17 updated by Junhyeok Seo (jun2342@chungbuk.ac.kr)
 #              : receive gear over gear_link and feed it to the display + speed model
-"""IONIQ5 instrument cluster (host-native, display only).
+
+"""
+IONIQ5 instrument cluster (host-native, display only).
 
 Decodes the official TX frames on vcan0 and shows them as a ccNC-style web cluster.
 Nothing is transmitted on the bus (pure display).
@@ -27,6 +29,7 @@ Display fields:
   (4) accel %      : ADE_A_314 APS_OUT_PERCENT
   (5) brake mm     : ADA_B_204 encoder_pos (stroke)
 """
+
 from __future__ import annotations
 
 import json

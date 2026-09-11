@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-# @copyright Chungbuk National University, Autonomous Vehicle Laboratory, 2026. All rights reserved.
-#            Subject to limited distribution and restricted disclosure only.
+# @copyright (c) 2026 Autonomous Vehicle Laboratory, Chungbuk National University
+#            SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 #
 # @file      vehicle_model.py
 # @brief     Display-side longitudinal speed model
@@ -8,7 +8,9 @@
 # @date      2026-06-24 created by Junhyeok Seo (jun2342@chungbuk.ac.kr)
 #            2026-07-17 updated by Junhyeok Seo (jun2342@chungbuk.ac.kr)
 #              : make the model gear-aware (P/N/D/R) with automatic creep
-"""Display-side speed model (host-native, display only).
+
+"""
+Display-side speed model (host-native, display only).
 
 Speed is not in the official CAN matrix, so the cluster derives it from acceleration
 (APS_OUT_PERCENT) and braking (brake stroke) with a simple longitudinal model, for

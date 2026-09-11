@@ -100,6 +100,29 @@ scripts/           vcan0 setup / teardown
 docker/            Dockerfile.vecu, docker-compose.yml (network_mode: host)
 docs/              architecture diagram, lab logo
 ```
+---
+
+## License
+
+Part of the IONIQ5 VILS course materials; noncommercial use only.
+(This repo is the `vecu/` submodule of the course repo — the terms below apply,
+not the parent repo's license.)
+
+| Scope | License |
+|-------|---------|
+| Entire repo (code, docs, diagrams; excluding `dbc/`) | [PolyForm Noncommercial 1.0.0](LICENSE.txt) |
+| **CAN matrix (`dbc/`)** | **Not covered by the license above** — see [dbc/NOTICE.txt](dbc/NOTICE.txt) |
+
+Use, modification, and redistribution for teaching, research, or personal study are
+permitted under PolyForm's *Noncommercial Organizations* / *Personal Uses* clauses.
+Commercial use is not permitted.
+
+> ⚠️ **`dbc/` is an exception.** The copyright holder of the CAN matrix is the
+> controller supplier, not the lab. The supplier granted permission **solely for
+> publication in this repo**; no rights to redistribute, mirror, or create derivative
+> works are granted beyond that. Any use beyond following the course materials
+> requires separate permission from the supplier. Be sure to read
+> [dbc/NOTICE.txt](dbc/NOTICE.txt) for details.
 
 ---
 

@@ -1,11 +1,13 @@
-# @copyright Chungbuk National University, Autonomous Vehicle Laboratory, 2026. All rights reserved.
-#            Subject to limited distribution and restricted disclosure only.
+# @copyright (c) 2026 Autonomous Vehicle Laboratory, Chungbuk National University
+#            SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 #
 # @file      config.py
 # @brief     vECU units/limits/defaults and dbc message/signal name bindings
 #
 # @date      2026-06-24 created by Junhyeok Seo (jun2342@chungbuk.ac.kr)
-"""vECU units/limits/defaults + dbc message/signal name bindings.
+
+"""
+vECU units/limits/defaults + dbc message/signal name bindings.
 
 Magic numbers and message names are not scattered across the code. Per-actuator
 physical parameters (limits, speeds) and which dbc message/signal each uses are

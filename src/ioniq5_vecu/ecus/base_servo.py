@@ -1,11 +1,13 @@
-# @copyright Chungbuk National University, Autonomous Vehicle Laboratory, 2026. All rights reserved.
-#            Subject to limited distribution and restricted disclosure only.
+# @copyright (c) 2026 Autonomous Vehicle Laboratory, Chungbuk National University
+#            SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 #
 # @file      base_servo.py
 # @brief     Single-axis position servo vECU common engine
 #
 # @date      2026-06-24 created by Junhyeok Seo (jun2342@chungbuk.ac.kr)
-"""Common engine for the single-axis position-servo vECU (shared steering/brake logic).
+
+"""
+Common engine for the single-axis position-servo vECU (shared steering/brake logic).
 
 Steering (ADA-S) and braking (ADA-B) are the same servo controller (IDs 0x10x <->
 0x20x, 1:1). The common RX/control/TX logic lives here; units, limits, message names
@@ -20,6 +22,7 @@ Manual back-drive (SON=0): branches on spec.manual_mode
   * rate     : integrate rate(-1..1) at manual_speed (hand-turning feel, like steering)
   * absolute : map 0..1 directly to [limit_min, limit_max] stroke (like the brake pedal)
 """
+
 from __future__ import annotations
 
 import threading

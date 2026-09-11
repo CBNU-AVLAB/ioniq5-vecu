@@ -1,11 +1,13 @@
-# @copyright Chungbuk National University, Autonomous Vehicle Laboratory, 2026. All rights reserved.
-#            Subject to limited distribution and restricted disclosure only.
+# @copyright (c) 2026 Autonomous Vehicle Laboratory, Chungbuk National University
+#            SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 #
 # @file      manual_protocol.py
 # @brief     Manual control side-channel wire format
 #
 # @date      2026-06-24 created by Junhyeok Seo (jun2342@chungbuk.ac.kr)
-"""Wire format for the manual-control side channel (single shared definition for both ends).
+
+"""
+Wire format for the manual-control side channel (single shared definition for both ends).
 
 The pure (no-socket) part - host console/input.py (sender) and container
 io/manual_channel.py (receiver) both import it to share the same format.
@@ -18,6 +20,7 @@ Payload (JSON):
   stops (staleness).
 * brake/accel are pedal depression (absolute ratio).
 """
+
 from __future__ import annotations
 
 import json
