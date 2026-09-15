@@ -9,19 +9,12 @@
 """
 vcan0 + cantools send/receive wrapper.
 
-Merges the three dbc/*.dbc files into one cantools Database and encodes (TX) /
-decodes (RX) by message name + signal dict over SocketCAN (vcan0). All bit packing
-goes through cantools (dbc) - no magic numbers in code.
+Merges dbc/*.dbc into one cantools Database and sends/receives frames on SocketCAN
+as a message name plus a signal dict.
 
-Key parts:
-* load_database()   : merge dbc/*.dbc into one (frame_id and names are globally unique).
-* CanBus            : python-can Bus wrapper. send(name, signals) / recv() / listen().
-* PeriodicTx        : monotonic-clock periodic transmitter. Each period re-encodes the
-                      latest signal dict from producer() (for TX frames that change over
-                      time, like encoder_pos).
-
-For tests/offline, CanBus(interface="virtual", channel="...",
-receive_own_messages=True) gives loopback verification without a real vcan0.
+* load_database() : merge dbc/*.dbc into one Database
+* CanBus          : python-can Bus wrapper — send() / recv() / listen()
+* PeriodicTx      : periodic sender driven by a monotonic clock
 """
 
 from __future__ import annotations
@@ -39,23 +32,16 @@ from cantools.database.can import Message
 ROOT = Path(__file__).resolve().parents[2]  # ioniq5-vecu/
 DBC_DIR = ROOT / "dbc"
 
-# Default channel: virtual CAN that the host brings up beforehand.
+# Default channel: virtual CAN brought up on the host
 DEFAULT_CHANNEL = "vcan0"
 DEFAULT_INTERFACE = "socketcan"
 
-# Decode result (message name, signal dict, raw frame).
-# typing.Tuple (not builtin tuple[...]) so this module-level alias evaluates on
-# Python 3.8 too - `from __future__ import annotations` only defers annotations,
-# not this assignment.
+# Decoded frame: (message name, signal dict, raw frame)
 DecodedFrame = Tuple[str, dict, can.Message]
 
 
 def load_database(dbc_dir: Path | str = DBC_DIR) -> Database:
-    """Merge dbc/*.dbc into one Database and return it.
-
-    The three ECUs' frame_ids (0x1xx/0x2xx/0x3xx) and message names don't overlap
-    globally, so they can simply be merged.
-    """
+    """Merge dbc/*.dbc into a single Database."""
     dbc_dir = Path(dbc_dir)
     files = sorted(dbc_dir.glob("*.dbc"))
     if not files:
@@ -69,15 +55,12 @@ def load_database(dbc_dir: Path | str = DBC_DIR) -> Database:
 
 
 class CanBus:
-    """python-can Bus + merged dbc wrapper.
+    """python-can Bus with the merged dbc.
 
-    Parameters
-    ----------
-    channel, interface : SocketCAN defaults (vcan0). Use "virtual" for tests.
-    database : inject a prebuilt Database (otherwise load_database()).
-    bus : inject an already-open can.BusABC (otherwise opened here). If injected,
-          close() does not shut it down (ownership stays with the caller).
-    receive_own_messages : also receive own TX frames (for loopback tests).
+    channel, interface   : SocketCAN by default (vcan0). Tests use "virtual".
+    database             : prebuilt Database (default: load_database()).
+    bus                  : already-open can.BusABC. An injected bus is not closed by close().
+    receive_own_messages : also receive frames sent by this bus (loopback tests).
     """
 
     def __init__(
@@ -98,11 +81,10 @@ class CanBus:
                 receive_own_messages=receive_own_messages,
             )
         self.bus = bus
-        # In the integrated runner several ECU control loops share one bus and send
-        # concurrently. Serialize TX for safety.
+        # Several ECU control loops can share this bus; serialize sends.
         self._send_lock = threading.Lock()
 
-    # -- lifecycle --------------------------------------------------------------
+    # ── Lifecycle ─────────────────────────────────────────────────────────
     def close(self) -> None:
         if self._owns_bus:
             self.bus.shutdown()
@@ -113,30 +95,24 @@ class CanBus:
     def __exit__(self, *exc) -> None:
         self.close()
 
-    # -- lookup helpers ---------------------------------------------------------
+    # ── Lookup ────────────────────────────────────────────────────────────
     def message(self, name: str) -> Message:
         return self.db.get_message_by_name(name)
 
     def tx_messages(self, node: str) -> list[Message]:
-        """Messages sent by `node` (that ECU's TX frames). For periodic-TX setup."""
+        """Messages sent by `node` (that ECU's TX frames)."""
         return [m for m in self.db.messages if m.senders and node in m.senders]
 
-    # -- send -------------------------------------------------------------------
+    # ── Send ──────────────────────────────────────────────────────────────
     @staticmethod
     def _default_phys(sig) -> float:
-        """Signal default physical value = raw_initial(GenSigStartValue)*scale+offset."""
+        """Default physical value: raw_initial (GenSigStartValue) * scale + offset."""
         raw = sig.raw_initial or 0
         return raw * sig.scale + sig.offset
 
     @staticmethod
     def _clamp_to_field(sig, value):
-        """Clamp a physical value into the signal's representable bitfield range.
-
-        Depending on scale/bit-width, the spec max may not fit the field by 1 LSB
-        (e.g. a % signal with scale=100/65536 -> 100% = raw 65536 > 16-bit max).
-        cantools encode raises OverflowError at such boundaries, so clamp to the field
-        range just before sending to keep the simulator alive.
-        """
+        """Clamp a physical value to the range the signal's bit field can represent."""
         if not isinstance(value, (int, float)) or isinstance(value, bool):
             return value
         if sig.is_signed:
@@ -156,13 +132,10 @@ class CanBus:
         padding: bool = True,
         fill_defaults: bool = False,
     ) -> can.Message:
-        """Encode a message name + signal dict and send. Returns the sent can.Message.
+        """Encode and send a message. Returns the sent can.Message.
 
-        fill_defaults=True fills signals missing from the dict with each signal's
-        default (dbc GenSigStartValue) - so control frames with many reserved bits
-        (e.g. 0x100) only need their meaningful signals specified.
-
-        Each signal is clamped to its bitfield range just before encoding (_clamp_to_field).
+        fill_defaults=True fills signals missing from `signals` with their dbc
+        default (GenSigStartValue). Values are clamped to their bit fields.
         """
         m = self.db.get_message_by_name(name)
         if fill_defaults:
@@ -182,9 +155,9 @@ class CanBus:
             self.bus.send(frame)
         return frame
 
-    # -- receive ----------------------------------------------------------------
+    # ── Receive ───────────────────────────────────────────────────────────
     def decode(self, frame: can.Message) -> Optional[DecodedFrame]:
-        """Raw can.Message -> (name, signal dict, frame). None if the ID is not in the dbc."""
+        """Raw frame -> (name, signals, frame). None if the ID is not in the dbc."""
         try:
             m = self.db.get_message_by_frame_id(frame.arbitration_id)
         except KeyError:
@@ -193,14 +166,14 @@ class CanBus:
         return m.name, dict(signals), frame
 
     def recv(self, timeout: Optional[float] = None) -> Optional[DecodedFrame]:
-        """Receive and decode one frame. None on timeout or off-matrix ID."""
+        """Receive and decode one frame. None on timeout or for an unknown ID."""
         frame = self.bus.recv(timeout)
         if frame is None:
             return None
         return self.decode(frame)
 
     def listen(self, timeout: Optional[float] = 1.0) -> Iterator[DecodedFrame]:
-        """Keep yielding decoded frames (off-matrix IDs are skipped)."""
+        """Yield decoded frames forever (unknown IDs are skipped)."""
         while True:
             frame = self.bus.recv(timeout)
             if frame is None:
@@ -211,12 +184,10 @@ class CanBus:
 
 
 class PeriodicTx:
-    """Monotonic-clock periodic transmitter (drift-corrected).
+    """Periodic sender with drift compensation.
 
-    Each period calls producer() for the latest signal dict, encodes it and sends.
-    Use for TX frames whose values change over time (encoder_pos, servo status).
-
-    If period is not given, the dbc cycle_time (ms) is used.
+    Calls producer() every period and sends the returned signals.
+    If period is omitted, the message's dbc cycle_time is used.
     """
 
     def __init__(
@@ -248,10 +219,10 @@ class PeriodicTx:
             except can.CanError:
                 pass  # transient bus error: retry next period
             next_t += self.period
-            # Drift correction: compute next wake time from an absolute schedule.
+            # Schedule against absolute time to avoid drift.
             sleep = next_t - time.monotonic()
             if sleep < 0:
-                next_t = time.monotonic()  # too far behind: rebase
+                next_t = time.monotonic()  # fell behind: rebase
                 sleep = 0
             self._stop.wait(sleep)
 

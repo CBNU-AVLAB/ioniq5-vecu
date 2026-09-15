@@ -7,18 +7,13 @@
 # @date      2026-06-24 created by Junhyeok Seo (jun2342@chungbuk.ac.kr)
 
 """
-Wire format for the manual-control side channel (single shared definition for both ends).
-
-The pure (no-socket) part - host console/input.py (sender) and container
-io/manual_channel.py (receiver) both import it to share the same format.
+Wire format of the manual-control side channel (shared by sender and receiver).
 
 Payload (JSON):
     {"steer": <-1..1 rate>, "brake": <0..1>, "accel": <0..1>}
 
-* steer is a "wheel-turning speed" (normalized rate). The vECU integrates it with dt
-  to back-drive, so it's insensitive to message rate and naturally stops when input
-  stops (staleness).
-* brake/accel are pedal depression (absolute ratio).
+* steer is a turning rate; the vECU integrates it over time.
+* brake / accel are absolute pedal positions.
 """
 
 from __future__ import annotations
@@ -28,7 +23,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 MANUAL_HOST = "127.0.0.1"
-MANUAL_PORT = 47100  # manual-control UDP port (spec-independent, side channel only)
+MANUAL_PORT = 47100  # manual-control UDP port
 
 
 def _clamp(v: float, lo: float, hi: float) -> float:
@@ -37,9 +32,9 @@ def _clamp(v: float, lo: float, hi: float) -> float:
 
 @dataclass(frozen=True)
 class ManualInput:
-    """A single manual-control input sample. Ranges are clamped at construction."""
+    """Manual input at one instant. clamped() limits the values to their ranges."""
 
-    steer: float = 0.0  # -1 (left) .. +1 (right) rate
+    steer: float = 0.0  # turning rate -1..+1 (left +1 / right -1)
     brake: float = 0.0  # 0 .. 1
     accel: float = 0.0  # 0 .. 1
 
@@ -62,7 +57,7 @@ def encode(mi: ManualInput) -> bytes:
 
 
 def decode(data: bytes) -> Optional[ManualInput]:
-    """Received bytes -> ManualInput. None (ignored) on broken JSON/format."""
+    """Bytes -> ManualInput, or None for malformed data."""
     try:
         obj = json.loads(data.decode("utf-8"))
         if not isinstance(obj, dict):

@@ -2,36 +2,24 @@
 #            SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 #
 # @file      Dockerfile.vecu
-# @brief     IONIQ5 vECU container image (role 1: Target ECU, headless)
+# @brief     IONIQ5 vECU container image (Target ECU, headless)
 #
 # @date      2026-06-24 created by Junhyeok Seo (jun2342@chungbuk.ac.kr)
-#
-# The container is the Target ECU box. It reads only the official CAN matrix (dbc),
-# receives commands (RX) and transmits actuator state (TX) on vcan0. The GUI (console/)
-# runs host-native outside the container and is not part of this image.
-#
-# build context = project root (ioniq5-vecu/). See docker-compose.yml.
+
+# Build context: the project root (see docker/docker-compose.yml).
 FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install dependencies first (layer cache efficiency)
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Source + the committed CAN definitions (dbc is the single source of truth)
 COPY src/ ./src/
 COPY dbc/ ./dbc/
-
-# The generated dbc is derived from supplier material, so its notice must travel with it.
-COPY dbc/NOTICE.txt ./dbc/NOTICE.txt
-
-# PolyForm Notices clause: every copy of the software must include the full license text.
 COPY LICENSE.txt ./
 
 ENV PYTHONPATH=/app/src \
     PYTHONUNBUFFERED=1
 
-# vcan0 is created/brought up by the host and shared via network_mode: host (no NET_ADMIN).
-# The manual-input UDP (127.0.0.1:47100) also works with host networking to the host console.
+# vcan0 and the manual-input UDP port (127.0.0.1:47100) are shared with the host (network_mode: host).
 CMD ["python", "-m", "ioniq5_vecu.vecu", "--channel", "vcan0"]

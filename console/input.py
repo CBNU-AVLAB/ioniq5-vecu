@@ -10,21 +10,15 @@
 #              : add PRND gear keys and mirror steering sign (left +1 / right -1)
 
 """
-Manual keyboard input (host-native).
+Manual-control keyboard input (host).
 
-Maps arrow keys to manual control inputs and sends them to the container vECU over a
-UDP side channel. The official CAN matrix has no "human moves it by hand" message, so
-this goes over localhost UDP, never on vcan0.
+Sends the arrow keys as manual input to the vECU over the UDP side channel.
 
-  Left/Right : steer rate (left +1 / right -1, left positive -- matches HILS/CARLA direction)
+  Left/Right : steering rate (left +1 / right -1)
   Up : accel   Down : brake
-  P/R/N/D : change gear display (cluster text only -- no other effect)   ESC/close : quit
+  P/R/N/D : gear shown on the cluster   ESC / close window : quit
 
-Key->payload mapping is isolated in the pure function keys_to_manual() so it can be
-tested without pygame/display. pygame is used only for key capture and rendering.
-
-Gear is a display value unrelated to the vECU/CAN, so it goes to cluster.py over the
-console-internal UDP channel (gear_link), not the manual channel -- only spec frames on vcan0.
+keys_to_manual() is a pure function and can be tested without pygame.
 """
 
 from __future__ import annotations
@@ -44,15 +38,11 @@ from ioniq5_vecu.io.manual_protocol import (  # noqa: E402
 
 from gear_link import DEFAULT_GEAR, GearSender  # console/gear_link.py  # noqa: E402
 
-SEND_HZ = 50  # send key state 50x/sec (rate-based: stops the vECU if it stalls)
+SEND_HZ = 50  # key state sends per second
 
 
 def keys_to_manual(left: bool, right: bool, up: bool, down: bool) -> ManualInput:
-    """Pressed arrow keys (bool) -> ManualInput. Pure function (easy to test).
-
-    Steer sign: left = +1 / right = -1. A positive encoder_pos is left (per HILS/CARLA),
-    so left is kept positive to match the key, the screen, HILS and CARLA directions.
-    """
+    """Pressed arrow keys -> ManualInput. Steering: left = +1, right = -1."""
     steer = (1.0 if left else 0.0) - (1.0 if right else 0.0)
     accel = 1.0 if up else 0.0
     brake = 1.0 if down else 0.0
@@ -60,15 +50,15 @@ def keys_to_manual(left: bool, right: bool, up: bool, down: bool) -> ManualInput
 
 
 def run(host: str = MANUAL_HOST, port: int = MANUAL_PORT) -> None:
-    import pygame  # imported here only (headless tests use keys_to_manual only)
+    import pygame  # imported here so keys_to_manual() works without pygame
 
     pygame.init()
     screen = pygame.display.set_mode((360, 120))
-    pygame.display.set_caption("IONIQ5 manual control - Left/Right steer, Up accel, Down brake")
+    pygame.display.set_caption("IONIQ5 Manual Input")
     font = pygame.font.SysFont(None, 22)
     clock = pygame.time.Clock()
 
-    # key -> gear (display only). Changes once on the press (KEYDOWN).
+    # key -> gear (display only), applied on KEYDOWN
     gear_keys = {
         pygame.K_p: "P", pygame.K_r: "R", pygame.K_n: "N", pygame.K_d: "D",
     }
@@ -76,8 +66,8 @@ def run(host: str = MANUAL_HOST, port: int = MANUAL_PORT) -> None:
     sender = ManualSender(host, port)
     gear_sender = GearSender()
     gear = DEFAULT_GEAR
-    gear_sender.send(gear)  # sync the initial gear if the cluster is already up
-    print(f"[input] sending manual input -> {host}:{port}  (ESC/close to quit)")
+    gear_sender.send(gear)  # sync the initial gear if the cluster is already running
+    print(f"[input] sending manual input -> {host}:{port}  (ESC / close window to quit)")
     try:
         running = True
         while running:
@@ -107,7 +97,7 @@ def run(host: str = MANUAL_HOST, port: int = MANUAL_PORT) -> None:
             pygame.display.flip()
             clock.tick(SEND_HZ)
     finally:
-        # one neutral on exit (staleness also stops it, but stop immediately)
+        # send neutral once before exiting
         sender.send(ManualInput())
         sender.close()
         gear_sender.close()

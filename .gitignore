@@ -1,7 +1,4 @@
-# Ignore the CLAUDE.md file
-CLAUDE.md
-
-# Ignore Python virtual environment and bytecode files
+# Python virtual environment and bytecode
 .venv/
 __pycache__/
 *.pyc

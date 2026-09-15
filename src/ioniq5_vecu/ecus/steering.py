@@ -7,13 +7,11 @@
 # @date      2026-06-24 created by Junhyeok Seo (jun2342@chungbuk.ac.kr)
 
 """
-ADA-S steering vECU.
+ADA-S steering vECU (BaseServoEcu with the STEERING spec).
 
-A thin wrapper over the common servo engine (base_servo.BaseServoEcu) with the
-STEERING spec injected.
-  RX  ADA_S_101 target_pos / ADA_S_100 SON
+  RX  ADA_S_100 SON / ADA_S_101 target_pos
   TX  ADA_S_104 encoder_pos / servo_abs_pos  (10ms)
-Manual (SON=0): steer-rate integration back-drive.
+Manual (SON=0): integrates the steer rate.
 """
 
 from __future__ import annotations
@@ -37,7 +35,7 @@ class SteeringEcu(BaseServoEcu):
 def run(channel: str = "vcan0", interface: str = "socketcan",
         demo: bool = False, manual: bool = True,
         spec: ServoSpec = STEERING) -> None:
-    # demo: +/-90deg triangle (a nice sub-range of the +/-480 limit)
+    # demo: ±90 deg triangle
     run_servo(spec, channel=channel, interface=interface, demo=demo,
               manual=manual, demo_lo=-90.0, demo_hi=90.0)
 
@@ -49,7 +47,7 @@ def main() -> None:
     ap.add_argument("--channel", default="vcan0")
     ap.add_argument("--interface", default="socketcan")
     ap.add_argument("--demo", action="store_true",
-                    help="inject SON=1 + target +/-90deg triangle (for candump)")
+                    help="inject SON=1 + a ±90 deg target triangle (for candump)")
     ap.add_argument("--no-manual", dest="manual", action="store_false",
                     help="disable the manual UDP side channel")
     args = ap.parse_args()

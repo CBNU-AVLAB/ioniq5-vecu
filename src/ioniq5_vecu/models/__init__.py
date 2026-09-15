@@ -6,7 +6,7 @@
 #
 # @date      2026-06-24 created by Junhyeok Seo (jun2342@chungbuk.ac.kr)
 
-"""Actuator physical/dynamics models (unit-agnostic, dbc/CAN-independent)."""
+"""Actuator physical models (unit-agnostic, independent of CAN and the dbc)."""
 from .servo import ServoModel
 
 __all__ = ["ServoModel"]

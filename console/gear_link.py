@@ -8,18 +8,12 @@
 # @date      2026-07-17 created by Junhyeok Seo (jun2342@chungbuk.ac.kr)
 
 """
-Console-internal UDP channel for gear display (display only, no vECU/CAN).
+Console-internal UDP channel for the gear display (not sent to the vECU or vcan0).
 
-Gear (P/R/N/D) is not in the official CAN matrix and has nothing to do with the vECU
-physics; it is a pure "cluster display" value. So it is not put on vcan0 or the manual
-channel (-> vECU); instead it flows only inside the same console, from input.py
-(keyboard) to cluster.py (cluster), over a separate UDP channel.
+  GearSender   : input.py side, sends one ASCII gear letter on key press
+  GearReceiver : cluster.py side, keeps the latest gear
 
-  GearSender   : sender on the input.py side. Sends the gear letter (1 ASCII byte) on key press.
-  GearReceiver : receiver on the cluster.py side. Holds the latest gear and puts it on the snapshot.
-
-Unlike the manual channel there is no staleness -- a gear stays set until the next change
-(like a real gear). Unknown/broken values are ignored.
+The gear stays until the next change. Unknown values are ignored.
 """
 
 from __future__ import annotations
@@ -29,20 +23,20 @@ import threading
 from typing import Callable, Optional
 
 GEAR_HOST = "127.0.0.1"
-GEAR_PORT = 47101            # gear-display UDP port (separate from manual 47100, side channel only)
+GEAR_PORT = 47101            # gear display UDP port
 VALID_GEARS = ("P", "R", "N", "D")
 DEFAULT_GEAR = "P"
 
 
 class GearSender:
-    """UDP sender pushing gear letters from input.py -> cluster.py."""
+    """Sends the gear letter from input.py to cluster.py over UDP."""
 
     def __init__(self, host: str = GEAR_HOST, port: int = GEAR_PORT) -> None:
         self.addr = (host, port)
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
     def send(self, gear: str) -> None:
-        """Send a gear letter. Sends nothing if it is not a valid gear."""
+        """Send a gear letter. Invalid gears are not sent."""
         gear = gear.upper()
         if gear in VALID_GEARS:
             self._sock.sendto(gear.encode("ascii"), self.addr)
@@ -58,7 +52,7 @@ class GearSender:
 
 
 class GearReceiver:
-    """Gear receiver on the cluster.py side. Keeps the latest gear and fires a callback on change."""
+    """Cluster-side gear receiver. Keeps the latest gear and calls on_gear for each one received."""
 
     def __init__(
         self,
@@ -96,7 +90,7 @@ class GearReceiver:
                 self._on_gear(gear)
 
     def get(self) -> str:
-        """Latest gear (no staleness -- kept until the next change)."""
+        """Latest gear (kept until the next change)."""
         with self._lock:
             return self._gear
 

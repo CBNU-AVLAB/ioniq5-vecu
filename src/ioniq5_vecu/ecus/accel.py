@@ -7,21 +7,20 @@
 # @date      2026-06-24 created by Junhyeok Seo (jun2342@chungbuk.ac.kr)
 
 """
-ADE-A acceleration vECU - APS pedal voltage emulator.
+ADE-A accelerator vECU (APS pedal voltage emulator).
 
-Not a servo (no position dynamics). By default it passes the driver pedal input (IN)
-through to the output (OUT); when an AD override command arrives, OUT follows the command.
+Passes the driver pedal (IN) through to OUT unless an AD override is active.
 
-  RX  ADE_A_311 : CAL_EN, OVR_VOLTAGE, OVR__PERCENT (note: dbc double underscore),
-                  APS_OVR_PERCENT_VALUE (%), APS1/2_OVR_VOLTAGE_VALUE (V)
+  RX  ADE_A_311 : CAL_EN, OVR_VOLTAGE, OVR__PERCENT, APS_OVR_PERCENT_VALUE (%),
+                  APS1/2_OVR_VOLTAGE_VALUE (V)
   TX  ADE_A_314 : BRK_S (%), APS_OVR_flag, BRK_OVR_flag, APS_IN_PERCENT, APS_OUT_PERCENT
       ADE_A_315 : APS1/2_IN_VOLTAGE, APS1/2_OUT_VOLTAGE (V)
 
-OUT decision:
+OUT:
   OVR__PERCENT=1 -> OUT% = APS_OVR_PERCENT_VALUE
-  OVR_VOLTAGE=1  -> OUT voltage = APS1/2_OVR_VOLTAGE_VALUE (OUT% back-computed from voltage)
-  both 0         -> OUT = IN (driver pedal as-is)
-IN is always the driver pedal (manual accel). BRK_S is the manual brake pedal.
+  OVR_VOLTAGE=1  -> OUT voltage = APS1/2_OVR_VOLTAGE_VALUE (OUT% derived from APS1)
+  otherwise      -> OUT = IN
+IN is the manual accel pedal; BRK_S is the manual brake pedal.
 """
 
 from __future__ import annotations
@@ -58,9 +57,9 @@ class AccelEcu:
         self.ovr_v1 = 0.0
         self.ovr_v2 = 0.0
 
-    # -- RX: apply override commands -------------------------------------------
+    # ── RX: override command ──────────────────────────────────────────────
     def handle_frame(self, name: str, sig: dict) -> None:
-        """Apply a decoded (name, signals). Public for the integrated runner's single dispatcher."""
+        """Apply a decoded 0x311 frame. Other frames are ignored."""
         if name != self.spec.ctrl_msg:
             return
         with self._lock:
@@ -77,7 +76,7 @@ class AccelEcu:
             if out is not None:
                 self.handle_frame(out[0], out[1])
 
-    # -- %<->voltage mapping (APS1 reference) ----------------------------------
+    # ── %<->voltage mapping (APS1) ────────────────────────────────────────
     def _v_from_pct(self, pct: float) -> float:
         s = self.spec
         return s.aps1_v0 + _clamp(pct, 0.0, 100.0) / 100.0 * (s.aps1_v100 - s.aps1_v0)
@@ -86,7 +85,7 @@ class AccelEcu:
         s = self.spec
         return _clamp((v - s.aps1_v0) / (s.aps1_v100 - s.aps1_v0) * 100.0, 0.0, 100.0)
 
-    # -- one period: compute input + decide output + send ----------------------
+    # ── One cycle: inputs, output selection, send ─────────────────────────
     def _tick(self) -> None:
         s = self.spec
         mi = self.manual.get() if self.manual is not None else NEUTRAL
@@ -94,14 +93,14 @@ class AccelEcu:
             opct_on, ov_on = self.ovr_pct_on, self.ovr_v_on
             opct, ov1, ov2 = self.ovr_pct, self.ovr_v1, self.ovr_v2
 
-        # input (driver pedal)
+        # inputs (driver pedals)
         aps_in = _clamp(mi.accel, 0.0, 1.0) * 100.0
         brk_s = _clamp(mi.brake, 0.0, 1.0) * 100.0
         aps1_in = self._v_from_pct(aps_in)
         aps2_in = aps1_in * s.aps2_ratio
 
-        # output
-        if opct_on:                                  # AD % command
+        # outputs
+        if opct_on:                                  # AD percent command
             aps_out = _clamp(opct, 0.0, 100.0)
             aps1_out = self._v_from_pct(aps_out)
             aps2_out = aps1_out * s.aps2_ratio
@@ -112,9 +111,7 @@ class AccelEcu:
             aps_out, aps1_out, aps2_out = aps_in, aps1_in, aps2_in
 
         aps_ovr_flag = 1 if aps_in > s.aps_driver_pct else 0
-        # Note: the xlsx remark says 'BRK_S < 20%', but for "driver-braking detected"
-        # the inverse makes sense, so we treat "pressed (> threshold)" as detected.
-        # If wrong, just flip the polarity.
+        # set while the driver brakes (BRK_S above the threshold)
         brk_ovr_flag = 1 if brk_s > s.brk_driver_pct else 0
 
         self.bus.send(s.status_msg, {
@@ -142,9 +139,9 @@ class AccelEcu:
                 sleep = 0
             self._stop.wait(sleep)
 
-    # -- lifecycle -------------------------------------------------------------
+    # ── Lifecycle ─────────────────────────────────────────────────────────
     def start(self, rx: bool = True) -> "AccelEcu":
-        """rx=True: own rx loop (standalone). rx=False: integrated runner injects via handle_frame."""
+        """rx=True: own rx loop (standalone). rx=False: frames arrive through handle_frame."""
         if self._threads:
             return self
         self._stop.clear()
@@ -172,11 +169,10 @@ class AccelEcu:
         self.stop()
 
 
-# -- real vcan0 run / candump demo -------------------------------------------
+# ── Standalone run / candump demo ──────────────────────────────────────────
 def _demo_driver(channel: str, interface: str, spec: AccelSpec,
                  stop: threading.Event) -> None:
-    """Inject an AD % override (OVR__PERCENT=1) + APS_OVR_PERCENT_VALUE triangle on a separate bus.
-    Lets candump show command (0x311) and OUT (0x314 APS_OUT_PERCENT) together."""
+    """Send an AD percent override (OVR__PERCENT=1) with a 0..100% triangle from a separate bus."""
     drv = CanBus(channel=channel, interface=interface)
     try:
         period_s = 4.0
@@ -198,7 +194,7 @@ def run(channel: str = "vcan0", interface: str = "socketcan",
     manual_ch = ManualChannel().start() if manual else None
     with CanBus(channel=channel, interface=interface) as bus:
         ecu = AccelEcu(bus, spec, manual=manual_ch).start()
-        print(f"[{spec.node}] running - sending {spec.status_msg}/{spec.voltage_msg} @ "
+        print(f"[{spec.node}] running — {spec.status_msg}/{spec.voltage_msg} @ "
               f"{ecu.period * 1000:.0f}ms. (Ctrl-C to quit)")
         if manual_ch is not None:
             print(f"[{spec.node}] manual UDP on :{manual_ch.port} "
@@ -206,7 +202,7 @@ def run(channel: str = "vcan0", interface: str = "socketcan",
         stop = threading.Event()
         driver: Optional[threading.Thread] = None
         if demo:
-            print(f"[{spec.node}] --demo: injecting OVR__PERCENT=1 + APS_OVR_PERCENT_VALUE "
+            print(f"[{spec.node}] --demo: OVR__PERCENT=1 + APS_OVR_PERCENT_VALUE "
                   f"0~100% triangle")
             driver = threading.Thread(
                 target=_demo_driver, args=(channel, interface, spec, stop),
@@ -230,11 +226,11 @@ def run(channel: str = "vcan0", interface: str = "socketcan",
 def main() -> None:
     import argparse
 
-    ap = argparse.ArgumentParser(description="ADE-A acceleration (APS emulator) vECU")
+    ap = argparse.ArgumentParser(description="ADE-A accelerator (APS emulator) vECU")
     ap.add_argument("--channel", default="vcan0")
     ap.add_argument("--interface", default="socketcan")
     ap.add_argument("--demo", action="store_true",
-                    help="inject AD %% override triangle (for candump)")
+                    help="inject an AD %% override triangle (for candump)")
     ap.add_argument("--no-manual", dest="manual", action="store_false",
                     help="disable the manual UDP side channel")
     args = ap.parse_args()

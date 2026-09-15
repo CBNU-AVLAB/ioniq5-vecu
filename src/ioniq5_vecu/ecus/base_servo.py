@@ -7,20 +7,17 @@
 # @date      2026-06-24 created by Junhyeok Seo (jun2342@chungbuk.ac.kr)
 
 """
-Common engine for the single-axis position-servo vECU (shared steering/brake logic).
+Common engine for the single-axis position servo vECUs (steering and brake).
 
-Steering (ADA-S) and braking (ADA-B) are the same servo controller (IDs 0x10x <->
-0x20x, 1:1). The common RX/control/TX logic lives here; units, limits, message names
-and manual mapping are injected via ServoSpec. steering.py / brake.py are thin
-wrappers differing only in spec.
+  RX  <servo_ctrl_msg> SON     -> ServoModel.set_enabled
+      <target_msg> target_pos  -> ServoModel.set_target
+  TX  <feedback_msg>           encoder_pos / servo_abs_pos
+      <status_msg>             SON / RD / ALM / INP / ZSP
+      <fsm_msg>                fsm_state_id
 
-  RX  <ctrl_msg> SON       -> ServoModel.set_enabled
-      <target_msg> target  -> ServoModel.set_target
-  TX  <feedback_msg>       -> encoder_pos / servo_abs_pos (at cycle_time)
-
-Manual back-drive (SON=0): branches on spec.manual_mode
-  * rate     : integrate rate(-1..1) at manual_speed (hand-turning feel, like steering)
-  * absolute : map 0..1 directly to [limit_min, limit_max] stroke (like the brake pedal)
+Manual back-drive (SON=0), selected by spec.manual_mode:
+  rate     : integrate the steer rate (-1..1) at manual_speed
+  absolute : map the pedal (0..1) directly to [limit_min, limit_max]
 """
 
 from __future__ import annotations
@@ -40,15 +37,13 @@ def _clamp(v: float, lo: float, hi: float) -> float:
 
 
 class ServoFsm:
-    """Minimal emulation of the controller state machine (dbc ADA_*_106 fsm_state_id).
+    """Minimal emulation of the controller state machine (fsm_state_id in 0x106/0x206).
 
-    Real controller definition (per dbc comments):
       0 start / 1 wait driver ready / 2 read absolute position / 3 free wheeling
       / 4 wait RD on / 5 position control / 6 warning
 
-    Here we walk the boot chain (START->...->FREE_WHEELING) one step per tick, then
-    switch between FREE_WHEELING (manual) and POSITION_CONTROL (AD tracking) based on
-    SON. On fault it drops to WARNING (fault source not modeled yet - indicator hook).
+    Walks the boot chain (0 -> 3) one step per tick, then follows SON:
+    3 free wheeling (manual) <-> 5 position control (AD). A fault forces 6 warning.
     """
 
     (START, WAIT_DRIVER_READY, READ_ABS_POS, FREE_WHEELING,
@@ -60,11 +55,11 @@ class ServoFsm:
         self._boot_i = 0
 
     def step(self, enabled: bool, fault: bool = False) -> int:
-        """Pick the next state from SON/fault and return fsm_state_id."""
+        """Advance one tick and return fsm_state_id."""
         if fault:
             self.state = self.WARNING
         elif self._boot_i < len(self._BOOT) - 1:
-            self._boot_i += 1                        # advance one boot step
+            self._boot_i += 1                        # next step of the boot chain
             self.state = self._BOOT[self._boot_i]
         else:
             self.state = self.POSITION_CONTROL if enabled else self.FREE_WHEELING
@@ -86,16 +81,15 @@ class BaseServoEcu:
         )
         self.manual = manual
         self.fsm = ServoFsm()
-        self.fault = False   # WARNING/ALM trigger hook - fault source not implemented yet
+        self.fault = False   # set by the UDS fault-injection routine
         self.period = canbus.message(spec.feedback_msg).cycle_time / 1000.0
         self._lock = threading.Lock()
         self._stop = threading.Event()
         self._threads: list[threading.Thread] = []
 
-    # -- RX: apply command frames ----------------------------------------------
+    # ── RX: command frames ────────────────────────────────────────────────
     def handle_frame(self, name: str, sig: dict) -> None:
-        """Apply a decoded (name, signals). Public so the integrated runner's single
-        dispatcher can fan the same frame to every ECU. Ignores frames that aren't its own."""
+        """Apply a decoded frame. Frames for other ECUs are ignored."""
         s = self.spec
         if name == s.target_msg:
             with self._lock:
@@ -110,31 +104,31 @@ class BaseServoEcu:
             if out is not None:
                 self.handle_frame(out[0], out[1])
 
-    # -- manual back-drive (only when control is OFF) --------------------------
+    # ── Manual back-drive (only while SON=0) ──────────────────────────────
     def _apply_manual(self, dt: float) -> None:
         if self.manual is None:
             return
         s = self.spec
         val = getattr(self.manual.get(), s.manual_axis)
         if s.manual_mode == "rate":
-            if val:  # integrate by the speed the human turns at
+            if val:  # integrate the turning rate
                 self.model.set_position(
                     self.model.position + val * s.manual_speed * dt
                 )
-        else:  # absolute: pedal depression (0..1) -> stroke
+        else:  # absolute: pedal (0..1) -> stroke
             self.model.set_position(
                 s.limit_min + _clamp(val, 0.0, 1.0) * (s.limit_max - s.limit_min)
             )
 
-    # -- control: integrate + send feedback/status/FSM -------------------------
+    # ── Control: integrate and send feedback / status / FSM ───────────────
     def _send_feedback(self, position: float) -> None:
         s = self.spec
         self.bus.send(s.feedback_msg, {s.encoder_sig: position, s.abs_sig: position})
 
     def _send_status(self, enabled: bool, fsm_state: int,
                      in_pos: bool, zsp: bool) -> None:
-        """Send 0x105/0x205 servo status bits + 0x106/0x206 fsm_state_id.
-        ALM/RD are 0=fault, 1=normal per dbc."""
+        """Send the servo status bits (0x105/0x205) and fsm_state_id (0x106/0x206).
+        ALM/RD: 0 = fault, 1 = normal."""
         s = self.spec
         ready = 0 if self.fault else 1
         self.bus.send(s.status_msg, {
@@ -156,10 +150,10 @@ class BaseServoEcu:
             with self._lock:
                 enabled = self.model.enabled
                 if enabled:
-                    position = self.model.step(dt)   # AD: track target
+                    position = self.model.step(dt)   # AD: track the target
                 else:
                     self._apply_manual(dt)           # manual back-drive
-                    position = self.model.step(dt)   # disabled -> hold position (vel 0)
+                    position = self.model.step(dt)   # SON=0: hold the position
                 in_pos = self.model.in_position()
                 zsp = self.model.at_zero_speed()
             fsm_state = self.fsm.step(enabled, self.fault)
@@ -173,10 +167,10 @@ class BaseServoEcu:
                 sleep = 0
             self._stop.wait(sleep)
 
-    # -- lifecycle -------------------------------------------------------------
+    # ── Lifecycle ─────────────────────────────────────────────────────────
     def start(self, rx: bool = True) -> "BaseServoEcu":
-        """rx=True: read the bus in an own rx loop (standalone).
-        rx=False: the integrated runner feeds frames via handle_frame, so control loop only."""
+        """rx=True: read the bus in an own thread (standalone).
+        rx=False: control loop only; frames arrive through handle_frame."""
         if self._threads:
             return self
         self._stop.clear()
@@ -204,12 +198,11 @@ class BaseServoEcu:
         self.stop()
 
 
-# -- real vcan0 run / candump demo (shared steering & brake) -----------------
+# ── Standalone run / candump demo (steering and brake) ─────────────────────
 def _demo_driver(channel: str, interface: str, spec: ServoSpec,
                  lo: float, hi: float, period_s: float,
                  stop: threading.Event) -> None:
-    """Sweep SON=1 + target as a lo~hi triangle on a separate bus to move the ECU.
-    Lets candump show command (target_msg) and tracking (feedback_msg) together."""
+    """Send SON=1 and a lo..hi triangle wave on target_msg from a separate bus."""
     drv = CanBus(channel=channel, interface=interface)
     try:
         drv.send(spec.servo_ctrl_msg, {spec.enable_sig: 1}, fill_defaults=True)
@@ -230,15 +223,15 @@ def run_servo(spec: ServoSpec, channel: str = "vcan0",
     manual_ch = ManualChannel().start() if manual else None
     with CanBus(channel=channel, interface=interface) as bus:
         ecu = BaseServoEcu(bus, spec, manual=manual_ch).start()
-        print(f"[{spec.node}] running - sending {spec.feedback_msg} @ "
+        print(f"[{spec.node}] running — {spec.feedback_msg} @ "
               f"{ecu.period * 1000:.0f}ms. (Ctrl-C to quit)")
         if manual_ch is not None:
             print(f"[{spec.node}] manual UDP on :{manual_ch.port} "
-                  f"(back-drive when SON=0)")
+                  f"(back-drive while SON=0)")
         stop = threading.Event()
         driver: Optional[threading.Thread] = None
         if demo:
-            print(f"[{spec.node}] --demo: injecting SON=1 + {spec.target_msg} "
+            print(f"[{spec.node}] --demo: SON=1 + {spec.target_msg} "
                   f"{demo_lo:g}~{demo_hi:g}{spec.unit} triangle")
             driver = threading.Thread(
                 target=_demo_driver,

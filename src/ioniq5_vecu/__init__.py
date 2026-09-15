@@ -6,11 +6,10 @@
 #
 # @date      2026-06-24 created by Junhyeok Seo (jun2342@chungbuk.ac.kr)
 
-"""
-ioniq5_vecu - virtual Target ECU (vECU) package (containerized/headless).
+"""ioniq5_vecu — virtual Target ECU (vECU) package.
 
-This package reads only the official CAN matrix (dbc): it receives commands (RX),
-updates actuator physical state, and periodically transmits state (TX). No GUI.
+Receives command frames defined in the CAN matrix (dbc), updates the actuator
+models and transmits the status frames periodically.
 """
 
 from .bus import CanBus, PeriodicTx, load_database

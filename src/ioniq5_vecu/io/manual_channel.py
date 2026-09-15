@@ -7,14 +7,13 @@
 # @date      2026-06-24 created by Junhyeok Seo (jun2342@chungbuk.ac.kr)
 
 """
-Manual control UDP side channel.
+Manual-control UDP side channel.
 
-  ManualSender  : sender on the host console side (used by console/input.py).
-  ManualChannel : receiver on the container vECU side. Holds the latest input for ECUs to read.
+  ManualSender  : host side (used by console/input.py)
+  ManualChannel : vECU side, keeps the latest input for the ECUs
 
-The receiver recvfrom's in a background thread and keeps the latest ManualInput plus
-its receive time. get() applies staleness: if input stops (console quits / keys
-released) it returns NEUTRAL automatically, so the actuator stops.
+ManualChannel.get() returns NEUTRAL when no input arrived within stale_after seconds,
+so the actuators stop when the console quits.
 """
 
 from __future__ import annotations
@@ -33,12 +32,12 @@ from .manual_protocol import (
     encode,
 )
 
-# Treat input as lost (NEUTRAL) if none arrives within this many seconds.
+# Input older than this (s) is treated as disconnected -> NEUTRAL
 DEFAULT_STALE_AFTER = 0.2
 
 
 class ManualSender:
-    """UDP sender pushing manual input from host console -> container vECU."""
+    """Sends manual input from the host console to the vECU over UDP."""
 
     def __init__(self, host: str = MANUAL_HOST, port: int = MANUAL_PORT) -> None:
         self.addr = (host, port)
@@ -58,7 +57,7 @@ class ManualSender:
 
 
 class ManualChannel:
-    """vECU-side manual-input receiver. Provides the latest value with staleness applied."""
+    """vECU-side receiver. Provides the latest input with a staleness timeout."""
 
     def __init__(
         self,
@@ -67,10 +66,7 @@ class ManualChannel:
         stale_after: float = DEFAULT_STALE_AFTER,
     ) -> None:
         self.stale_after = stale_after
-        # SO_REUSEADDR is deliberately not used. With a single receiver, allowing a
-        # duplicate bind would let UDP leak into a zombie socket on a second vECU and
-        # fail silently. Without it, a duplicate start fails loudly with
-        # "Address already in use".
+        # No SO_REUSEADDR: starting a second receiver fails with "Address already in use".
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self._sock.bind((host, port))
         self._sock.settimeout(0.1)
@@ -94,13 +90,13 @@ class ManualChannel:
                 break  # socket closed
             mi = decode(data)
             if mi is None:
-                continue  # ignore broken packet
+                continue  # ignore malformed packets
             with self._lock:
                 self._latest = mi
                 self._ts = time.monotonic()
 
     def get(self) -> ManualInput:
-        """Latest manual input. NEUTRAL if stale (no input for > stale_after seconds)."""
+        """Latest manual input, or NEUTRAL if it is older than stale_after."""
         with self._lock:
             if time.monotonic() - self._ts > self.stale_after:
                 return NEUTRAL
