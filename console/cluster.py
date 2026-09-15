@@ -10,24 +10,21 @@
 #              : receive gear over gear_link and feed it to the display + speed model
 
 """
-IONIQ5 instrument cluster (host-native, display only).
+IONIQ5 web instrument cluster (display only).
 
-Decodes the official TX frames on vcan0 and shows them as a ccNC-style web cluster.
-Nothing is transmitted on the bus (pure display).
+  [vcan0] --cantools--> ClusterState --SSE--> [browser canvas]
 
-Pipeline:
-  [vcan0] --cantools--> ClusterState --SSE(text/event-stream)--> [browser Canvas]
+* Backend (this file): stdlib http.server. A decode thread updates ClusterState and
+  /stream sends snapshots to the browser at ~30 Hz.
+* Frontend (console/web/): index.html + cluster.js.
 
-* Backend (this file): stdlib http.server only. A CAN-decode thread updates
-  ClusterState, and /stream streams snapshots to the browser at ~30Hz.
-* Frontend (console/web/): index.html + cluster.js (Canvas render).
-
-Display fields:
-  (1) speed        : not on the bus -> derived by vehicle_model (display side)
-  (2) steer deg    : ADA_S_104 encoder_pos
-  (3) vehicle state: brake swaps the car image, lane bends with steering
-  (4) accel %      : ADE_A_314 APS_OUT_PERCENT
-  (5) brake mm     : ADA_B_204 encoder_pos (stroke)
+Displayed values:
+  speed         derived by vehicle_model from accel/brake
+  steering deg  ADA_S_104 encoder_pos
+  accel %       ADE_A_314 APS_OUT_PERCENT
+  brake mm      ADA_B_204 encoder_pos (stroke)
+  indicators    fsm_state_id (0x106/0x206), AD override bits (0x311)
+  gear          from console/input.py over gear_link (UDP)
 """
 
 from __future__ import annotations
@@ -53,39 +50,36 @@ from vehicle_model import VehicleModel  # console/vehicle_model.py  # noqa: E402
 WEB_DIR = HERE / "web"
 ASSETS_DIR = HERE / "assets"
 
-# -- Decode sources (reuse config.py specs; dbc is the single source of truth for bits) --
-# Steering/brake come from ServoSpec, accel from AccelSpec; message/signal names are not
-# hardcoded here.
+# ── Decoded signals (from the specs in config.py) ───────────────────────────
 STEER_MSG = STEERING.feedback_msg     # ADA_S_104
 STEER_SIG = STEERING.encoder_sig      # encoder_pos
-STEER_LIMIT = STEERING.limit_max      # +/-480 deg
+STEER_LIMIT = STEERING.limit_max      # ±480 deg
 
 BRAKE_MSG = BRAKE.feedback_msg        # ADA_B_204
 BRAKE_SIG = BRAKE.encoder_sig         # encoder_pos (mm stroke)
-BRAKE_MAX_MM = BRAKE.limit_max        # 60mm (ADA-B limit)
-BRAKE_ON_MM = 0.5                     # above this = "brake engaged" (image swap) - display threshold
+BRAKE_MAX_MM = BRAKE.limit_max        # 170 mm
+BRAKE_ON_MM = 0.5                     # above this the brake image is shown
 
 ACCEL_MSG = ACCEL.status_msg          # ADE_A_314
 ACCEL_SIG = ACCEL.out_pct_sig         # APS_OUT_PERCENT (%)
 
-# -- Indicator (actuator state) sources --------------------------------------
-# Servo control-mode/fault from fsm_state_id (0x106/0x206); accel control-mode from the
-# AD override command (OVR_* bits of 0x311). FSM constants per dbc comments:
-#   5 position control / 6 warning / 3 free wheeling, etc.
+# ── Indicator sources ───────────────────────────────────────────────────────
+# Servo control/fault from fsm_state_id (0x106/0x206),
+# accel control from the AD override bits (0x311).
 STEER_FSM_MSG = STEERING.fsm_msg      # ADA_S_106
 BRAKE_FSM_MSG = BRAKE.fsm_msg         # ADA_B_206
 FSM_SIG = "fsm_state_id"
-FSM_CONTROL = 5                       # position control -> control mode (green)
-FSM_WARNING = 6                       # warning -> fault (red)
+FSM_CONTROL = 5                       # position control -> green
+FSM_WARNING = 6                       # warning -> red
 
-ACCEL_CTRL_MSG = ACCEL.ctrl_msg       # ADE_A_311 (RX command: OVR_* = AD control)
+ACCEL_CTRL_MSG = ACCEL.ctrl_msg       # ADE_A_311 (AD override command)
 
-SPEED_MAX = 180.0                     # speedometer gauge full scale (km/h)
-BUS_TIMEOUT_S = 1.0                   # "disconnected" if no frame within this time
+SPEED_MAX = 180.0                     # speedometer full scale (km/h)
+BUS_TIMEOUT_S = 1.0                   # no displayed frame for this long -> disconnected
 
 
 class ClusterState:
-    """Decoded display state. The CAN thread updates it; the SSE handler reads snapshots."""
+    """Decoded display state. Updated by the CAN thread, read by the SSE handler."""
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
@@ -93,18 +87,16 @@ class ClusterState:
         self.steer_deg = 0.0
         self.accel_pct = 0.0
         self.brake_mm = 0.0
-        # indicator state - servos have control/fault, accel has control only
         self.steer_ctrl = False
         self.steer_fault = False
         self.brake_ctrl = False
         self.brake_fault = False
         self.accel_ctrl = False
-        self.gear = DEFAULT_GEAR  # display-only gear (input.py keyboard -> gear_link UDP)
-        self._last_rx = 0.0    # last frame rx time (monotonic); 0 = never received
+        self.gear = DEFAULT_GEAR  # display-only gear from input.py (gear_link)
+        self._last_rx = 0.0    # monotonic time of the last displayed frame; 0 = none yet
 
     def update(self, name: str, signals: dict) -> None:
-        """Apply a decoded (message name, signals). Display only, so unknown messages
-        are ignored."""
+        """Apply a decoded frame. Frames not shown on the cluster are ignored."""
         with self._lock:
             if name == STEER_MSG:
                 self.steer_deg = float(signals[STEER_SIG])
@@ -121,22 +113,21 @@ class ClusterState:
                 self.brake_ctrl = fsm == FSM_CONTROL
                 self.brake_fault = fsm == FSM_WARNING
             elif name == ACCEL_CTRL_MSG:
-                # 0x311 is an AD->ECU command frame - update accel control mode only;
-                # do not use it for connection detection (_last_rx).
+                # 0x311 is an AD command: update accel control only, not the connection state
                 self.accel_ctrl = (bool(signals.get("OVR__PERCENT", 0))
                                    or bool(signals.get("OVR_VOLTAGE", 0)))
                 return
             else:
-                return  # not a displayed frame -> ignore (also not used for connection detection)
-            self._last_rx = time.monotonic()  # receiving a frame we display = bus connected
+                return  # not displayed
+            self._last_rx = time.monotonic()  # a displayed frame arrived -> connected
 
     def set_speed(self, kmh: float) -> None:
-        """Apply the speed derived by vehicle_model (display side)."""
+        """Set the speed derived by vehicle_model."""
         with self._lock:
             self.speed = kmh
 
     def set_gear(self, gear: str) -> None:
-        """Apply the gear letter received over gear_link (UDP) (display only)."""
+        """Set the gear received over gear_link."""
         with self._lock:
             self.gear = gear
 
@@ -166,7 +157,7 @@ class ClusterState:
 
 def _decode_loop(channel: str, interface: str, state: ClusterState,
                  stop: threading.Event) -> None:
-    """Decode vcan0 and update ClusterState. Display only, no TX."""
+    """Decode vcan0 into ClusterState (receive only)."""
     with CanBus(channel=channel, interface=interface) as bus:
         while not stop.is_set():
             out = bus.recv(timeout=0.2)
@@ -176,8 +167,7 @@ def _decode_loop(channel: str, interface: str, state: ClusterState,
 
 def _vehicle_loop(state: ClusterState, stop: threading.Event,
                   hz: float = 50.0) -> None:
-    """Derive speed from accel/brake into state.speed (display side).
-    Sends nothing on the bus."""
+    """Derive the speed from accel/brake into state.speed. Sends nothing on the bus."""
     vm = VehicleModel(max_kmh=SPEED_MAX)
     period = 1.0 / hz
     last = time.monotonic()
@@ -193,7 +183,7 @@ def _vehicle_loop(state: ClusterState, stop: threading.Event,
         stop.wait(period)
 
 
-# -- Static-file + SSE HTTP handler ------------------------------------------
+# ── Static files + SSE HTTP handler ─────────────────────────────────────────
 _CONTENT_TYPES = {
     ".html": "text/html; charset=utf-8",
     ".js": "application/javascript; charset=utf-8",
@@ -210,10 +200,10 @@ def _make_handler(state: ClusterState, stream_hz: float):
     class Handler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
 
-        def log_message(self, *args):  # silence
+        def log_message(self, *args):  # silence request logs
             pass
 
-        # whitelist-based static mapping (prevents path traversal)
+        # Whitelisted static paths (no path traversal)
         def _resolve(self) -> Optional[Path]:
             path = self.path.split("?", 1)[0]
             if path == "/":
@@ -250,7 +240,7 @@ def _make_handler(state: ClusterState, stream_hz: float):
                     self.wfile.flush()
                     time.sleep(period)
             except (BrokenPipeError, ConnectionResetError, OSError):
-                return  # browser closed
+                return  # browser closed the stream
 
         def do_GET(self):
             if self.path.split("?", 1)[0] == "/stream":
@@ -281,16 +271,16 @@ def run(channel: str = "vcan0", interface: str = "socketcan",
     )
     vehicle.start()
 
-    # gear display (input.py keyboard -> console-internal UDP). Just reflect the gear into state.
+    # gear display: input.py -> gear_link UDP -> state
     gear_rx = GearReceiver(on_gear=state.set_gear).start()
 
     httpd = ThreadingHTTPServer((host, port), _make_handler(state, stream_hz))
     httpd.daemon_threads = True
     print(f"[cluster] http://{host}:{port}  (vcan: {channel}/{interface})  Ctrl-C to quit")
-    print(f"[cluster] gear rx :{gear_rx.port} (input.py PRND keys)")
+    print(f"[cluster] gear input on :{gear_rx.port} (P/R/N/D keys in input.py)")
     if not (ASSETS_DIR / "ioniq5_basic.png").exists():
-        print("[cluster] note: without console/assets/ioniq5_basic.png(+_brake.png) "
-              "a fallback render is used.")
+        print("[cluster] note: console/assets/ioniq5_basic.png (+_brake.png) not found; "
+              "using fallback rendering.")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
@@ -304,7 +294,7 @@ def run(channel: str = "vcan0", interface: str = "socketcan",
 def main() -> None:
     import argparse
 
-    ap = argparse.ArgumentParser(description="IONIQ5 web instrument cluster (display only)")
+    ap = argparse.ArgumentParser(description="IONIQ5 web cluster (display only)")
     ap.add_argument("--channel", default="vcan0")
     ap.add_argument("--interface", default="socketcan")
     ap.add_argument("--host", default="127.0.0.1")

@@ -7,14 +7,11 @@
 # @date      2026-06-24 created by Junhyeok Seo (jun2342@chungbuk.ac.kr)
 
 """
-ADA-B braking vECU.
+ADA-B brake vECU (BaseServoEcu with the BRAKE spec).
 
-A thin wrapper over the common servo engine (base_servo.BaseServoEcu) with the
-BRAKE spec injected. Same servo controller as steering - only units (mm), limits
-(0~60) and messages (0x20x) differ.
-  RX  ADA_B_201 target_pos / ADA_B_200 SON
+  RX  ADA_B_200 SON / ADA_B_201 target_pos
   TX  ADA_B_204 encoder_pos / servo_abs_pos  (10ms)
-Manual (SON=0): map the brake pedal (absolute 0..1) directly to 0~60mm stroke.
+Manual (SON=0): maps the brake pedal (0..1) to a 0~170 mm stroke.
 """
 
 from __future__ import annotations
@@ -38,19 +35,19 @@ class BrakeEcu(BaseServoEcu):
 def run(channel: str = "vcan0", interface: str = "socketcan",
         demo: bool = False, manual: bool = True,
         spec: ServoSpec = BRAKE) -> None:
-    # demo: 0~60mm stroke triangle
+    # demo: 0~170 mm stroke triangle
     run_servo(spec, channel=channel, interface=interface, demo=demo,
-              manual=manual, demo_lo=0.0, demo_hi=60.0)
+              manual=manual, demo_lo=0.0, demo_hi=170.0)
 
 
 def main() -> None:
     import argparse
 
-    ap = argparse.ArgumentParser(description="ADA-B braking vECU")
+    ap = argparse.ArgumentParser(description="ADA-B brake vECU")
     ap.add_argument("--channel", default="vcan0")
     ap.add_argument("--interface", default="socketcan")
     ap.add_argument("--demo", action="store_true",
-                    help="inject SON=1 + target 0~60mm triangle (for candump)")
+                    help="inject SON=1 + a 0~170 mm target triangle (for candump)")
     ap.add_argument("--no-manual", dest="manual", action="store_false",
                     help="disable the manual UDP side channel")
     args = ap.parse_args()

@@ -7,19 +7,16 @@
 # @date      2026-06-24 created by Junhyeok Seo (jun2342@chungbuk.ac.kr)
 
 """
-Integrated vECU runner - steering + brake + accel in one process on 1 CanBus + 1 ManualChannel.
+Integrated vECU runner: steering + brake + accel on one CanBus and one ManualChannel.
 
-Running each ECU separately would (1) collide on the manual UDP port (47100) and
-(2) read the same vcan0 from multiple sockets. The integrated runner makes the ECUs
-share one bus and one manual channel.
+A single dispatcher reads the bus and passes every decoded frame to all ECUs
+(each ECU ignores frames that are not its own). The ECUs run only their TX loops.
 
-Note: if ECUs each call bus.recv on the same bus they steal frames from each other.
-So ECUs run only their control (TX) loops with start(rx=False), and a single
-dispatcher here reads the bus and fans decoded frames out to every ECU's
-handle_frame (each ECU ignores frames that aren't its own).
+  RX  dispatcher -> SteeringEcu / BrakeEcu / AccelEcu.handle_frame
+  TX  ECU control loops -> 0x104 / 0x204 / 0x314·0x315
 
-  RX  (dispatcher)        -> SteeringEcu / BrakeEcu / AccelEcu.handle_frame
-  TX  (each ECU control loop)  0x104 / 0x204 / 0x314 / 0x315  (sent on the shared bus)
+UDS diagnostics (0x7A0 / 0x7B0 / 0x7C0) run on their own sockets and send nothing
+until a request arrives. Disable them with --no-diag.
 """
 
 from __future__ import annotations
@@ -29,6 +26,7 @@ import time
 from typing import Optional
 
 from .bus import CanBus
+from .diag.server import DiagManager
 from .ecus.accel import AccelEcu
 from .ecus.brake import BrakeEcu
 from .ecus.steering import SteeringEcu
@@ -60,7 +58,7 @@ class VEcu:
     def start(self) -> "VEcu":
         self._stop.clear()
         for ecu in self.ecus:
-            ecu.start(rx=False)           # control (TX) loop only - rx via shared dispatcher
+            ecu.start(rx=False)           # TX loop only; the dispatcher handles RX
         self._dispatcher = threading.Thread(
             target=self._dispatch_loop, name="vecu-dispatch", daemon=True)
         self._dispatcher.start()
@@ -82,16 +80,21 @@ class VEcu:
 
 
 def run(channel: str = "vcan0", interface: str = "socketcan",
-        manual: bool = True) -> None:
+        manual: bool = True, diag: bool = True) -> None:
     manual_ch = ManualChannel().start() if manual else None
     with CanBus(channel=channel, interface=interface) as bus:
         vecu = VEcu(bus, manual=manual_ch).start()
         nodes = ", ".join(e.spec.node for e in vecu.ecus)
-        print(f"[vecu] running - {nodes} (1 bus {channel}/{interface}, single dispatcher). "
+        print(f"[vecu] running — {nodes} (bus {channel}/{interface}, single dispatcher). "
               f"Ctrl-C to quit")
         if manual_ch is not None:
             print(f"[vecu] manual UDP on :{manual_ch.port} "
                   f"(steer/brake back-drive, accel->APS_IN)")
+        diag_mgr = DiagManager(vecu.ecus, channel=channel,
+                               interface=interface).start() if diag else None
+        if diag_mgr is not None:
+            print(f"[vecu] UDS diagnostics — {diag_mgr.describe()} "
+                  f"(silent until a request arrives)")
         try:
             while True:
                 time.sleep(0.5)
@@ -99,6 +102,8 @@ def run(channel: str = "vcan0", interface: str = "socketcan",
             print("\n[vecu] stopped")
         finally:
             vecu.stop()
+            if diag_mgr is not None:
+                diag_mgr.stop()
             if manual_ch is not None:
                 manual_ch.stop()
 
@@ -107,13 +112,16 @@ def main() -> None:
     import argparse
 
     ap = argparse.ArgumentParser(
-        description="Integrated vECU (steering + brake + accel, 1 bus / 1 manual channel)")
+        description="Integrated vECU (steering + brake + accel, one bus, one manual channel)")
     ap.add_argument("--channel", default="vcan0")
     ap.add_argument("--interface", default="socketcan")
     ap.add_argument("--no-manual", dest="manual", action="store_false",
                     help="disable the manual UDP side channel")
+    ap.add_argument("--no-diag", dest="diag", action="store_false",
+                    help="disable the UDS diagnostic layer")
     args = ap.parse_args()
-    run(channel=args.channel, interface=args.interface, manual=args.manual)
+    run(channel=args.channel, interface=args.interface, manual=args.manual,
+        diag=args.diag)
 
 
 if __name__ == "__main__":

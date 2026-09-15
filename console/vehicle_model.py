@@ -10,26 +10,24 @@
 #              : make the model gear-aware (P/N/D/R) with automatic creep
 
 """
-Display-side speed model (host-native, display only).
+Display-side speed model (host).
 
-Speed is not in the official CAN matrix, so the cluster derives it from acceleration
-(APS_OUT_PERCENT) and braking (brake stroke) with a simple longitudinal model, for
-display only. Nothing is sent on vcan0.
+Speed is not in the CAN matrix, so the cluster derives it from APS_OUT_PERCENT and the
+brake stroke. Nothing is sent on vcan0.
 
-Physics (simplified):
   a = drive - brake - resist
     drive  = (accel% / 100) * accel_ms2
     brake  = (stroke / stroke_max) * brake_ms2
-    resist = roll + aero * v        (rolling + aero drag, always decelerating)
-  v += a*dt,  0 <= v <= max_speed
-Coefficients are pre-measurement assumptions for display feel (to be tuned).
+    resist = roll + aero * v
+  v += a * dt,  0 <= v <= max_speed
+The coefficients are assumed values.
 
-Per-gear behavior (display only -- gear arrives only via the console-internal gear_link):
-  P : hold speed at 0 (parked).
-  N : ignore accel (power cut), decelerate only by braking + friction (neutral coasting).
-  D/R : the base physics above + idle creep -- releasing the brake gently pushes up to
-        creep_kmh (~5-6) (real automatic creep). Strong braking overcomes creep and stops.
+Gears:
+  P   : speed fixed at 0
+  N   : no drive; brake and resistance only
+  D/R : drive, plus creep up to creep_kmh when the brake is released
 """
+
 from __future__ import annotations
 
 KMH_PER_MS = 3.6
@@ -40,17 +38,17 @@ def _clamp(v: float, lo: float, hi: float) -> float:
 
 
 class VehicleModel:
-    """Longitudinal speed integrator. Internal state in m/s, exposed as km/h."""
+    """Longitudinal speed integrator. m/s internally, km/h outside."""
 
     def __init__(
         self,
         max_kmh: float = 180.0,
         accel_ms2: float = 3.5,   # full-throttle acceleration
-        brake_ms2: float = 6.0,   # full-braking deceleration
-        roll: float = 0.15,       # rolling resistance (constant decel) m/s^2
-        aero: float = 0.012,      # aero drag coefficient (proportional to v) 1/s
-        creep_kmh: float = 6.0,   # automatic creep target (D/R, brake released); ~5-6 after friction offset
-        creep_ms2: float = 2.5,   # creep acceleration (pushes toward creep speed at low speed)
+        brake_ms2: float = 6.0,   # full-brake deceleration
+        roll: float = 0.15,       # rolling resistance, m/s²
+        aero: float = 0.012,      # aerodynamic drag coefficient (proportional to v), 1/s
+        creep_kmh: float = 6.0,   # creep target speed (D/R, brake released)
+        creep_ms2: float = 2.5,   # creep acceleration
     ) -> None:
         self.max_ms = max_kmh / KMH_PER_MS
         self.accel_ms2 = accel_ms2
@@ -65,22 +63,22 @@ class VehicleModel:
         self.v = 0.0
 
     def step(self, dt: float, accel_pct: float, brake_mm: float,
-             brake_max_mm: float = 60.0, gear: str = "D") -> float:
-        """Advance by dt seconds. accel_pct (0-100), brake_mm (0-max), gear (P/R/N/D). Returns km/h."""
+             brake_max_mm: float = 170.0, gear: str = "D") -> float:
+        """Advance by dt seconds. accel_pct 0~100, brake_mm 0~max, gear P/R/N/D. Returns km/h."""
         if dt <= 0:
             return self.v * KMH_PER_MS
         if gear == "P":
-            self.v = 0.0                        # parked: hold speed at 0
+            self.v = 0.0                       # park: speed 0
             return 0.0
 
-        resist = self.roll + self.aero * self.v  # always decelerating
+        resist = self.roll + self.aero * self.v   # always decelerating
         brake = (_clamp(brake_mm, 0.0, brake_max_mm) / brake_max_mm) * self.brake_ms2
         if gear == "N":
-            a = -brake - resist                 # neutral: ignore accel, decelerate by braking + friction
-        else:                                   # D / R: accel + creep - brake - friction
+            a = -brake - resist                 # neutral: no drive
+        else:                                   # D / R: drive or creep, minus brake and resistance
             drive = _clamp(accel_pct, 0.0, 100.0) / 100.0 * self.accel_ms2
             creep = 0.0
-            if self.v < self.creep_ms:          # only gently push at low speed (tapered)
+            if self.v < self.creep_ms:          # creep only at low speed (tapered)
                 creep = self.creep_ms2 * (1.0 - self.v / self.creep_ms)
             a = max(drive, creep) - brake - resist
         self.v = _clamp(self.v + a * dt, 0.0, self.max_ms)
